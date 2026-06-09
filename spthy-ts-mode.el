@@ -90,14 +90,21 @@
   (treesit-query-compile 'spthy '((built_in) @builtin)))
 
 ;; Does not consider theories from included files.
-(defun spthy-ts-mode--imported-theories ()
-  (cl-loop for (_ . node) in
-           (treesit-query-capture 'spthy spthy-ts-mode--builtin-query)
-           collect (treesit-node-type (treesit-node-child node 0))))
-
-;; TODO implement without timeout library
-;; use closure? store last value, last time, check whether difference to now >= 2
-(timeout-throttle 'spthy-ts-mode--imported-theories 2)
+(defalias 'spthy-ts-mode--imported-theories
+  (let ((last-time 0)
+        (last-value nil))
+    (lambda ()
+      (let ((current-time (time-convert (current-time) 'integer)))
+        (if (> current-time
+               (+ last-time 2))
+            (setq
+             last-time current-time
+             last-value
+             (cl-loop
+              for (_ . node) in
+              (treesit-query-capture 'spthy spthy-ts-mode--builtin-query)
+              collect (treesit-node-type (treesit-node-child node 0))))
+          last-value)))))
 
 (defun spthy-ts-mode--add-face-builtin-function (node _override start end &rest _)
   (when (cl-intersection
