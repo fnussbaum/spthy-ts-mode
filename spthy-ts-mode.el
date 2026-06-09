@@ -322,24 +322,25 @@
       node
       #'proof-node-p 'include-node))))
 
-;; TODO don't insert the space when closing bracket on next line or later
 (defun spthy-ts-mode--indent-line ()
   (treesit-indent)
   ;; Insert a space before closing rule delimiters.
   (let ((node (treesit-node-at (point))))
-    (when (equal (treesit-node-type (treesit-node-parent node))
-                 "ERROR")
-      (setq node (treesit-node-parent node)))
-    (let ((prev-sibling (treesit-node-prev-sibling node)))
-      (when (and (spthy-ts-mode--closing-rule-delimiter-p node)
-                 (or (equal (treesit-node-type prev-sibling)
-                            ",")
-                     (and (equal (treesit-node-type prev-sibling) "ERROR")
-                          (equal (treesit-node-type
-                                  (treesit-node-child prev-sibling 0))
-                                 ","))))
-        (insert " ")
-        (backward-char)))))
+    (when (< (treesit-node-start node)
+             (save-excursion (forward-line) (point)))
+      (when (equal (treesit-node-type (treesit-node-parent node))
+                   "ERROR")
+        (setq node (treesit-node-parent node)))
+      (let ((prev-sibling (treesit-node-prev-sibling node)))
+        (when (and (spthy-ts-mode--closing-rule-delimiter-p node)
+                   (or (equal (treesit-node-type prev-sibling)
+                              ",")
+                       (and (equal (treesit-node-type prev-sibling) "ERROR")
+                            (equal (treesit-node-type
+                                    (treesit-node-child prev-sibling 0))
+                                   ","))))
+          (insert " ")
+          (backward-char))))))
 
 (defun spthy-ts-mode--matching-bracket-next-sibling (node parent _bol &rest _)
   (let* ((siblings (cl-member-if
