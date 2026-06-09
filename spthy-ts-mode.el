@@ -350,16 +350,12 @@
      (nth 1 siblings))))
 
 (defun spthy-ts-mode--first-sibling-start (node parent _bol &rest _)
-  ;; We restrict to named siblings or "!" nodes.
-  (let* ((siblings (treesit-node-children parent))
-         (!-position
-          (cl-position "!" (mapcar #'treesit-node-type siblings)
-                       :test #'equal)))
-    (treesit-node-start
-     (if (or (null !-position)
-             (> !-position (cl-position node siblings :test #'equal)))
-         (treesit-node-child parent 0 'named)
-       (nth !-position siblings)))))
+  ;; We consider named siblings or "!" nodes.
+  (treesit-node-start
+   (car (cl-member-if (lambda (nod)
+                        (or (treesit-node-named nod)
+                            (eq (treesit-node-type nod) "!")))
+                      (treesit-node-children parent)))))
 
 (defun spthy-ts-mode--non-comment-node-p (node)
   (not (member (treesit-node-type node) '("single_comment" "multi_comment"))))
@@ -406,9 +402,6 @@
 ;;   Fr(x),
 ;;   Bla(y)
 ;; ]
-;; TODO fix the following indentation:
-;; [ Fr(~idi), !Ltk($B, $A, kba),
-;;             !Ltk($A, $B, kab) ]
 ;; TODO indent correctly after let ENTER in rules
 (defvar spthy-ts-mode--indent-settings
   `((spthy
