@@ -191,7 +191,7 @@
       (restriction restriction_identifier: (ident) @font-lock-function-name-face)
       (lemma lemma_identifier: (ident) @font-lock-function-name-face)
       (diff_lemma lemma_identifier: (ident) @font-lock-function-name-face)
-      (tactic (ident) @font-lock-preprocessor-face))
+      (tactic (ident) @font-lock-function-name-face))
 
      :language spthy
      :feature fact
@@ -240,13 +240,12 @@
       (["step" "solve"] @font-lock-function-call-face)
       (["sorry"] @font-lock-warning-face))
 
-     ;; TODO Tactic highlighting could be more subtle.
      :language spthy
      :feature tactic
      (([,@(alist-get 'tactic spthy-ts-mode--tokens)]
-       @font-lock-keyword-face)
+       @font-lock-preprocessor-face)
       ([,@(alist-get 'tactic-function spthy-ts-mode--tokens)]
-       @font-lock-builtin-face))))
+       @font-lock-preprocessor-face))))
 
 ;; Consider using `treesit-node-top-level' with predicate?
 (defun spthy-ts-mode--top-level-node-at (pos)
