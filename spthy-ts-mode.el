@@ -297,19 +297,33 @@
 (defun spthy-ts-mode--prev-matching-bracket-start (node _parent _bol &rest _)
   (treesit-node-start (spthy-ts-mode--prev-matching-bracket-node node)))
 
-(defun spthy-ts-mode--within-formula-p (node &optional _parent _bol &rest _)
-  (and
-   (not (member (treesit-node-type (treesit-node-parent node))
-                '("lemma" "diff_lemma")))
-   (cl-flet ((formula-node-p (nod)
-               (or (member (treesit-node-type nod)
-                           '("nested_formula" "conjunction"
-                             "disjunction" "iff" "imp"))
-                   (member (treesit-node-field-name nod)
-                           '("formula")))))
-     (treesit-parent-until
-      node
-      #'formula-node-p 'include-node))))
+(defun spthy-ts-mode--formula-indent-rule (node parent bol &rest _)
+  (let* ((standalone-pos (funcall (alist-get 'standalone-parent treesit-simple-indent-presets)
+                                 node parent bol))
+         (standalone-parent
+          (treesit-node-at standalone-pos))
+         (grandparent (treesit-node-parent parent)))
+    (cond ((equal (treesit-node-type parent) "quantified_formula")
+           `(,(treesit-node-start parent) . ,spthy-ts-mode-indent-offset))
+          ((equal (treesit-node-type grandparent) "quantified_formula")
+           `(,(treesit-node-start grandparent) . ,spthy-ts-mode-indent-offset))
+          ((and (member (treesit-node-type standalone-parent)
+                        '("All" "Ex"))
+                (>= standalone-pos (pos-bol 0)))
+           `(,(treesit-node-start standalone-parent) . ,spthy-ts-mode-indent-offset))
+          (t (and
+              (not (member (treesit-node-type (treesit-node-parent node))
+                           '("lemma" "diff_lemma")))
+              (cl-flet ((formula-node-p (nod)
+                          (or (member (treesit-node-type nod)
+                                      '("nested_formula" "conjunction"
+                                        "disjunction" "iff" "imp"))
+                              (member (treesit-node-field-name nod)
+                                      '("formula")))))
+                (when (treesit-parent-until
+                       node
+                       #'formula-node-p 'include-node)
+                  `(,(treesit-node-start parent) . 0))))))))
 
 (defun spthy-ts-mode--within-proof-p (node &optional _parent _bol &rest _)
   (and
@@ -392,11 +406,12 @@
 
 ;; TODO unify indentation handling of action facts,
 ;; terms etc. in formulas, rules and processes
-;; TODO support comma on new line style for action fact annotations
 ;; TODO consider matching first child, then anchor to first sibling (as is done already): `match' matcher
 ;; https://www.gnu.org/software/emacs/manual/html_node/elisp/Parser_002dbased-Indentation.html
 ;; TODO writing formulas does not indent nicely (incomplete, looking at \" for example, or not inserted yet)
 ;; TODO for formulas consider: when node before is (quantified_formula "."), indent one step anchored to quantifier
+;; or when standalone-parent is quantifier, always only indent one step? matches many examples
+;; prev-line-is matcher? probably does not exist in 29.1. Also has to be parent
 ;; TODO indent when braces on own lines:
 ;; [
 ;;   Fr(x),
@@ -413,8 +428,7 @@
      ;; for most other proof parts indentation seems consistent with pretty-printing
      (spthy-ts-mode--within-proof-p
       no-indent)
-     (spthy-ts-mode--within-formula-p
-      parent 0)
+     spthy-ts-mode--formula-indent-rule
      ((parent-is ,(regexp-opt '( "set_lock" "remove_lock" "input" "read_state"
                                  "delete_state" "set_state" "output" "event"
                                  "process_let" "binding" "conditional")
