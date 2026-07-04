@@ -225,7 +225,8 @@
      :language spthy
      :feature builtin
      :override t
-     (((nary_app function_identifier: (ident) @spthy-ts-mode--add-face-builtin-function))
+     (((nary_app function_identifier: (ident)
+                 @spthy-ts-mode--add-face-builtin-function))
       ((built_in) @font-lock-builtin-face)
       (action_constraint ( linear_fact fact_identifier: (ident)
                            @spthy-ts-mode--add-face-action-constraint))
@@ -319,11 +320,13 @@
                          '("lemma" "diff_lemma")))
             (treesit-parent-until node #'formula-node-p 'include-node))
            (let* ((maybe-quantifier-child
-                   (treesit-parent-until parent #'parent-quantifier-prev-line 'include-node))
+                   (treesit-parent-until parent #'parent-quantifier-prev-line
+                                         'include-node))
                   (maybe-quantifier
                    (treesit-node-parent maybe-quantifier-child)))
              (if (or (not (or (member (treesit-node-type node) '("&" "|" "==>"))
-                              (member (treesit-node-type parent) '("conjunction" "disjunction" "imp"))))
+                              (member (treesit-node-type parent)
+                                      '("conjunction" "disjunction" "imp"))))
                      (above-parent-line-p maybe-quantifier))
                  `(,(treesit-node-start parent) . 0)
                `(,(treesit-node-start maybe-quantifier) .
@@ -365,9 +368,11 @@
           (backward-char))))))
 
 (defun spthy-ts-mode--matching-bracket-next-sibling (node parent _bol &rest _)
-  (let* ((siblings (cl-member-if
-                    (lambda (nod) (equal nod (spthy-ts-mode--prev-matching-bracket-node node)))
-                    (treesit-node-children parent))))
+  (let* ((siblings
+          (cl-member-if
+           (lambda (nod)
+             (equal nod (spthy-ts-mode--prev-matching-bracket-node node)))
+           (treesit-node-children parent))))
     (treesit-node-start
      (nth 1 siblings))))
 
@@ -398,10 +403,10 @@
        ))
 
 (defun spthy-ts-mode--previous-node-colon-p (node parent _bol &rest _)
-  (and (save-excursion
-         (forward-line 0)
-         (spthy-ts-mode--goto-previous-non-comment-node)
-         (looking-at ":"))))
+  (save-excursion
+    (forward-line 0)
+    (spthy-ts-mode--goto-previous-non-comment-node)
+    (looking-at ":")))
 
 (defun spthy-ts-mode--first-sibling-comma-or-bracket
     (node parent _bol &rest _)
@@ -444,8 +449,9 @@
           (parent-is "^tactic$"))
       column-0 0)
      ;; Don't interfere with proof formatting when indenting the whole buffer.
-     ;; TODO this is a little bit slow, just use no-indent by_method, next, case, qed etc.?
-     ;; for most other proof parts indentation seems consistent with pretty-printing
+     ;; (This check is relatively expensive though, consider no-indent
+     ;; by_method, next, case, qed etc.? For other proof parts indentation seems
+     ;; consistent with pretty-printing.)
      (spthy-ts-mode--within-proof-p
       no-indent)
      spthy-ts-mode--formula-indent-rule
