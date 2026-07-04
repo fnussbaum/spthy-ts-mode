@@ -194,7 +194,7 @@
 
      :language spthy
      :feature definition
-     ((simple_rule rule_identifier: (ident) @font-lock-variable-name-face)
+     ((simple_rule rule_identifier: (ident) @font-lock-function-name-face)
       (restriction restriction_identifier: (ident) @font-lock-function-name-face)
       (lemma lemma_identifier: (ident) @font-lock-function-name-face)
       (diff_lemma lemma_identifier: (ident) @font-lock-function-name-face)
