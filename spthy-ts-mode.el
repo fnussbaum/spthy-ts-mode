@@ -298,51 +298,70 @@
   (treesit-node-start (spthy-ts-mode--prev-matching-bracket-node node)))
 
 (defun spthy-ts-mode--formula-indent-rule (node parent bol &rest _)
-  (let ((grandparent (treesit-node-parent parent)))
+  (cl-flet ((formula-node-p (nod)
+              (or (member (treesit-node-type nod)
+                          '("nested_formula" "conjunction"
+                            "disjunction" "iff" "imp"))
+                  (member (treesit-node-field-name nod)
+                          '("formula"))))
+            (quantifier-prev-line (nod)
+              (or (equal (treesit-node-type nod) "quantified_formula")
+                  (< (treesit-node-start nod)
+                     (save-excursion
+                       (goto-char (treesit-node-start parent))
+                       (pos-bol)))))
+            (parent-quantifier-prev-line (nod)
+              (setq nod (treesit-node-parent nod))
+              (or (equal (treesit-node-type nod) "quantified_formula")
+                  (< (treesit-node-start nod)
+                     (save-excursion
+                       (goto-char (treesit-node-start parent))
+                       (pos-bol))))))
     (cond ((equal (treesit-node-type parent) "quantified_formula")
            `(,(treesit-node-start parent) . ,spthy-ts-mode-indent-offset))
-          ((equal (treesit-node-type grandparent) "quantified_formula")
-           `(,(treesit-node-start grandparent) . ,spthy-ts-mode-indent-offset))
           ((and
             (not (member (treesit-node-type (treesit-node-parent node))
                          '("lemma" "diff_lemma")))
-            (cl-flet ((formula-node-p (nod)
-                        (or (member (treesit-node-type nod)
-                                    '("nested_formula" "conjunction"
-                                      "disjunction" "iff" "imp"))
-                            (member (treesit-node-field-name nod)
-                                    '("formula")))))
-              (treesit-parent-until node #'formula-node-p 'include-node)))
-           `(,(treesit-node-start parent) . 0)))))
+            (treesit-parent-until node #'formula-node-p 'include-node))
+           (let ((maybe-quantifier
+                  (treesit-parent-until parent #'quantifier-prev-line 'include-node)))
+             (if (or (not (or (member (treesit-node-type node) '("&" "|" "==>"))
+                              (member (treesit-node-type parent) '("conjunction" "disjunction" "imp"))))
+                     (< (treesit-node-start maybe-quantifier)
+                        (save-excursion
+                          (goto-char (treesit-node-start parent))
+                          (pos-bol))))
+                 `(,(treesit-node-start parent) . 0)
+               `(,(treesit-node-start maybe-quantifier) .
+                 ,(+ spthy-ts-mode-indent-offset
+                     (- (treesit-node-start parent)
+                        (treesit-node-start
+                         ;; first node after . of quantifier
+                         ;; could let-bind this above, and use parent
+                         ;; TODO replace both parent-until with one handwritten loop, save both nodes in variables
+                         (treesit-parent-until parent #'parent-quantifier-prev-line 'include-node)))))))))))
 
 (defun spthy-ts-mode--within-proof-p (node &optional _parent _bol &rest _)
-  (and
-   (cl-flet ((proof-node-p (nod)
-               (or (member (treesit-node-type nod)
-                           '("cases" "case"))
-                   (member (treesit-node-field-name nod)
-                           '("proof_skeleton")))))
-     (treesit-parent-until
-      node
-      #'proof-node-p 'include-node))))
+  (cl-flet ((proof-node-p (nod)
+              (or (member (treesit-node-type nod)
+                          '("cases" "case"))
+                  (member (treesit-node-field-name nod)
+                          '("proof_skeleton")))))
+    (treesit-parent-until
+     node
+     #'proof-node-p 'include-node)))
 
 (defun spthy-ts-mode--indent-line ()
   (treesit-indent)
   ;; Insert a space before closing rule delimiters.
   (let ((node (treesit-node-at (point))))
     (when (< (treesit-node-start node)
-             (save-excursion (forward-line) (point)))
+             (pos-bol 2))
       (when (equal (treesit-node-type (treesit-node-parent node))
                    "ERROR")
         (setq node (treesit-node-parent node)))
       (let ((prev-sibling (treesit-node-prev-sibling node)))
-        (when (and (spthy-ts-mode--closing-rule-delimiter-p node)
-                   (or (equal (treesit-node-type prev-sibling)
-                              ",")
-                       (and (equal (treesit-node-type prev-sibling) "ERROR")
-                            (equal (treesit-node-type
-                                    (treesit-node-child prev-sibling 0))
-                                   ","))))
+        (when (spthy-ts-mode--closing-rule-delimiter-p node)
           (insert " ")
           (backward-char))))))
 
@@ -431,6 +450,8 @@
      ;; TODO handle case where closing bracket on next line
      (spthy-ts-mode--previous-node-comma-p
       spthy-ts-mode--first-sibling-comma-or-bracket 0)
+     ((node-is "^--\\[$")
+      column-0 ,(max 0 (- spthy-ts-mode-indent-offset 2)))
      ;; TODO correctly indent incomplete rules
      ((or (n-p-gp nil nil "^theory$")
           (parent-is "^simple_rule$")
