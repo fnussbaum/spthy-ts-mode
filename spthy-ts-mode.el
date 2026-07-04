@@ -254,13 +254,12 @@
       ([,@(alist-get 'tactic-function spthy-ts-mode--tokens)]
        @font-lock-preprocessor-face))))
 
-;; Consider using `treesit-node-top-level' with predicate?
-(defun spthy-ts-mode--top-level-node-at (pos)
-  (let ((node (treesit-node-at pos)))
-    (while-let ((parent (treesit-node-parent node))
-                (_ (equal pos (treesit-node-start parent))))
-      (setq node parent))
-    node))
+(defun spthy-ts-mode--largest-node-at (pos)
+  (treesit-parent-while
+   (treesit-node-at pos)
+   (lambda (node)
+     (and (eq pos (treesit-node-start node))
+          (not (treesit-node-eq node (treesit-buffer-root-node)))))))
 
 (defun spthy-ts-mode--closing-rule-delimiter-p (node)
   (let ((type (treesit-node-type node)))
@@ -407,7 +406,7 @@
            (save-excursion
              (forward-line 0)
              (spthy-ts-mode--goto-previous-non-comment-node)
-             (spthy-ts-mode--top-level-node-at (point)))))
+             (spthy-ts-mode--largest-node-at (point)))))
       (spthy-ts-mode--first-sibling-start
        comma-node (treesit-node-parent comma-node) nil))))
 
