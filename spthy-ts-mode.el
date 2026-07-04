@@ -332,6 +332,14 @@
                         (treesit-node-start
                          maybe-quantifier-child))))))))))
 
+(defun spthy-ts-mode--incomplete-let-indent-rule (node parent _bol &rest _)
+  (when-let* ((let-pos (save-excursion
+                         (forward-line 0)
+                         (spthy-ts-mode--goto-previous-non-comment-node)
+                         (when (looking-at "let")
+                           (point)))))
+    `(,let-pos . ,spthy-ts-mode-indent-offset)))
+
 (defun spthy-ts-mode--within-proof-p (node &optional _parent _bol &rest _)
   (cl-flet ((proof-node-p (nod)
               (or (member (treesit-node-type nod)
@@ -468,6 +476,7 @@
      ((or (node-is "^premise$")
           (node-is "^conclusion$"))
       column-0 ,spthy-ts-mode-indent-offset)
+     spthy-ts-mode--incomplete-let-indent-rule
      ;; TODO correctly indent incomplete rules
      ((or (n-p-gp nil nil "^theory$")
           (parent-is "^simple_rule$")
