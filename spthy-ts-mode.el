@@ -465,7 +465,8 @@
       column-0 ,(max 0 (- spthy-ts-mode-indent-offset 2)))
      ((node-is "^-->$")
       column-0 ,(max 0 (- spthy-ts-mode-indent-offset 1)))
-     ((node-is "^premise$")
+     ((or (node-is "^premise$")
+          (node-is "^conclusion$"))
       column-0 ,spthy-ts-mode-indent-offset)
      ;; TODO correctly indent incomplete rules
      ((or (n-p-gp nil nil "^theory$")
