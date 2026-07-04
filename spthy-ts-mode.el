@@ -410,9 +410,15 @@
       (spthy-ts-mode--first-sibling-start
        comma-node (treesit-node-parent comma-node) nil))))
 
-(defun spthy-ts-mode--quote-child-exists-p
+(defun spthy-ts-mode--quote-sibling-before-p
     (_node parent _bol &rest _)
-  (treesit-filter-child parent (lambda (nod) (equal (treesit-node-type nod) "\""))))
+  (when-let*
+      ((quote-child
+        (car
+         (treesit-filter-child
+          parent
+          (lambda (nod) (equal (treesit-node-type nod) "\""))))))
+    (< (treesit-node-start quote-child) (point))))
 
 ;; TODO unify indentation handling of action facts,
 ;; terms etc. in formulas, rules and processes
@@ -441,7 +447,7 @@
      ;; Handle empty line inside "" (for writing lemmas).
      ((and (or (parent-is "^lemma$")
                (parent-is "^diffLemma$"))
-           spthy-ts-mode--quote-child-exists-p)
+           spthy-ts-mode--quote-sibling-before-p)
       prev-line 0)
      ((parent-is
        ,(regexp-opt '( "set_lock" "remove_lock" "input" "read_state"
