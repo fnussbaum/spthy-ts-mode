@@ -297,7 +297,7 @@
 (defun spthy-ts-mode--prev-matching-bracket-start (node _parent _bol &rest _)
   (treesit-node-start (spthy-ts-mode--prev-matching-bracket-node node)))
 
-(defun spthy-ts-mode--formula-indent-rule (node parent bol &rest _)
+(defun spthy-ts-mode--formula-indent-rule (node parent _bol &rest _)
   (cl-flet* ((formula-node-p (nod)
                (or (member (treesit-node-type nod)
                            '("nested_formula" "conjunction"
@@ -316,7 +316,7 @@
     (cond ((equal (treesit-node-type parent) "quantified_formula")
            `(,(treesit-node-start parent) . ,spthy-ts-mode-indent-offset))
           ((and
-            (not (member (treesit-node-type (treesit-node-parent node))
+            (not (member (treesit-node-type parent)
                          '("lemma" "diff_lemma")))
             (treesit-parent-until node #'formula-node-p 'include-node))
            (let* ((maybe-quantifier-child
@@ -390,6 +390,12 @@
        ;;     (equal (treesit-node-type parent) "ERROR"))
        ))
 
+(defun spthy-ts-mode--previous-node-colon-p (node parent _bol &rest _)
+  (and (save-excursion
+         (forward-line 0)
+         (spthy-ts-mode--goto-previous-non-comment-node)
+         (looking-at ":"))))
+
 (defun spthy-ts-mode--first-sibling-comma-or-bracket
     (node parent _bol &rest _)
   (if-let* (node
@@ -405,14 +411,14 @@
       (spthy-ts-mode--first-sibling-start
        comma-node (treesit-node-parent comma-node) nil))))
 
+(defun spthy-ts-mode--quote-child-exists-p
+    (_node parent _bol &rest _)
+  (treesit-filter-child parent (lambda (nod) (equal (treesit-node-type nod) "\""))))
+
 ;; TODO unify indentation handling of action facts,
 ;; terms etc. in formulas, rules and processes
 ;; TODO consider matching first child, then anchor to first sibling (as is done already): `match' matcher
 ;; https://www.gnu.org/software/emacs/manual/html_node/elisp/Parser_002dbased-Indentation.html
-;; TODO writing formulas does not indent nicely (incomplete, looking at \" for example, or not inserted yet)
-;; TODO for formulas consider: when node before is (quantified_formula "."), indent one step anchored to quantifier
-;; or when standalone-parent is quantifier, always only indent one step? matches many examples
-;; prev-line-is matcher? probably does not exist in 29.1. Also has to be parent
 ;; TODO indent when braces on own lines:
 ;; [
 ;;   Fr(x),
@@ -430,20 +436,32 @@
      (spthy-ts-mode--within-proof-p
       no-indent)
      spthy-ts-mode--formula-indent-rule
-     ((parent-is ,(regexp-opt '( "set_lock" "remove_lock" "input" "read_state"
-                                 "delete_state" "set_state" "output" "event"
-                                 "process_let" "binding" "conditional")
-                              'symbol))
+     ((or (n-p-gp "\"" "^lemma$" nil)
+          (node-is "^trace_quantifier$"))
+      column-0 ,spthy-ts-mode-indent-offset)
+     ;; Handle empty line inside "" (for writing lemmas).
+     ((and (or (parent-is "^lemma$")
+               (parent-is "^diffLemma$"))
+           spthy-ts-mode--quote-child-exists-p)
+      prev-line 0)
+     ((parent-is
+       ,(regexp-opt '( "set_lock" "remove_lock" "input" "read_state"
+                       "delete_state" "set_state" "output" "event"
+                       "process_let" "binding" "conditional")
+                    'symbol))
       standalone-parent 0)
      ((n-p-gp "^]->$" "^action_fact$" nil)
       parent 2)
      ((n-p-gp "^in$" "^rule_let_block$" nil)
       parent 0)
-     ;; TODO handle case where closing bracket on next line
      (spthy-ts-mode--previous-node-comma-p
       spthy-ts-mode--first-sibling-comma-or-bracket 0)
-     ((node-is "^--\\[$")
+     ((node-is "^action_fact$")
       column-0 ,(max 0 (- spthy-ts-mode-indent-offset 2)))
+     ((node-is "^-->$")
+      column-0 ,(max 0 (- spthy-ts-mode-indent-offset 1)))
+     ((node-is "^premise$")
+      column-0 ,spthy-ts-mode-indent-offset)
      ;; TODO correctly indent incomplete rules
      ((or (n-p-gp nil nil "^theory$")
           (parent-is "^simple_rule$")
@@ -455,7 +473,9 @@
       spthy-ts-mode--first-sibling-start 0)
      ((or (node-is ")") (node-is "]") (node-is ">"))
       spthy-ts-mode--prev-matching-bracket-start 0)
-     (catch-all parent 0))))
+     (spthy-ts-mode--previous-node-colon-p
+      column-0 ,spthy-ts-mode-indent-offset)
+     (catch-all prev-line 0))))
 
 ;; TODO include modulo? include [left], [right]
 (defun spthy-ts-mode--defun-name (node)
