@@ -39,7 +39,8 @@
   :group 'spthy)
 
 (defcustom spthy-ts-mode-electric-pair-pairs
-  '(("--\\[" " ]->" t) ("\\[" " ]" t))
+  '(("--\\[" " ]->" t))
+  "")
   "")
 
 (defvar spthy-ts-mode--tokens
