@@ -86,13 +86,11 @@
     (dest-symmetric-encryption)
     (dest-asymmetric-encryption)))
 
-(defvar spthy-ts-mode--builtin-query
-  (treesit-query-compile 'spthy '((built_in) @builtin)))
-
 ;; Does not consider theories from included files.
 (defalias 'spthy-ts-mode--imported-theories
   (let ((last-time 0)
-        (last-value nil))
+        (last-value nil)
+        (query (treesit-query-compile 'spthy '((built_in) @builtin))))
     (lambda ()
       (let ((current-time (time-convert (current-time) 'integer)))
         (if (> current-time
@@ -102,7 +100,7 @@
              last-value
              (cl-loop
               for (_ . node) in
-              (treesit-query-capture 'spthy spthy-ts-mode--builtin-query)
+              (treesit-query-capture 'spthy query)
               collect (treesit-node-type (treesit-node-child node 0))))
           last-value)))))
 
@@ -377,7 +375,7 @@
      (nth 1 siblings))))
 
 (defun spthy-ts-mode--first-sibling-start (node parent _bol &rest _)
-  ;; We consider named siblings or "!" nodes.
+  ;; We consider named siblings and "!" nodes.
   (treesit-node-start
    (car (cl-member-if (lambda (nod)
                         (or (treesit-node-named nod)
