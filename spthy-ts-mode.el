@@ -421,14 +421,15 @@
       (spthy-ts-mode--first-sibling-start
        comma-node (treesit-node-parent comma-node) nil))))
 
-(defun spthy-ts-mode--quote-sibling-before-p
+(defun spthy-ts-mode--lemma-quote-before-p
     (_node parent _bol &rest _)
   (when-let*
       ((quote-child
-        (car
-         (treesit-filter-child
-          parent
-          (lambda (nod) (equal (treesit-node-type nod) "\""))))))
+        (and (member (treesit-node-type parent) '("lemma" "restriction"))
+         (car
+          (treesit-filter-child
+           parent
+           (lambda (nod) (equal (treesit-node-type nod) "\"")))))))
     (< (treesit-node-start quote-child) (point))))
 
 (defun spthy-ts-mode--end-of-prev-node
@@ -447,9 +448,6 @@
           (parent-is "^tactic$"))
       column-0 0)
      ;; Don't interfere with proof formatting when indenting the whole buffer.
-     ;; (This check is relatively expensive though, consider no-indent
-     ;; by_method, next, case, qed etc.? For other proof parts indentation seems
-     ;; consistent with pretty-printing.)
      (spthy-ts-mode--within-proof-p
       no-indent)
      spthy-ts-mode--formula-indent-rule
@@ -457,7 +455,7 @@
           (n-p-gp "\"" "^restriction$" nil)
           (node-is "^trace_quantifier$"))
       column-0 ,spthy-ts-mode-indent-offset)
-     ((and no-node spthy-ts-mode--quote-sibling-before-p)
+     ((and no-node spthy-ts-mode--lemma-quote-before-p)
       prev-line 0) ; for writing lemmas
      ((parent-is
        ,(regexp-opt '( "set_lock" "remove_lock" "input" "read_state"
