@@ -41,6 +41,8 @@
 (defcustom spthy-ts-mode-electric-pair-pairs
   '(("--\\[" " ]->" t))
   "")
+
+(defcustom spthy-ts-mode-space-before-closing-rule-delimiters t
   "")
 
 (defvar spthy-ts-mode--tokens
@@ -355,16 +357,21 @@
 (defun spthy-ts-mode--indent-line ()
   (treesit-indent)
   ;; Insert a space before closing rule delimiters.
-  (let ((node (treesit-node-at (point))))
-    (when (< (treesit-node-start node)
-             (pos-bol 2))
-      (when (equal (treesit-node-type (treesit-node-parent node))
-                   "ERROR")
-        (setq node (treesit-node-parent node)))
-      (let ((prev-sibling (treesit-node-prev-sibling node)))
-        (when (spthy-ts-mode--closing-rule-delimiter-p node)
-          (insert " ")
-          (backward-char))))))
+  (when spthy-ts-mode-space-before-closing-rule-delimiters
+    (let ((node (treesit-node-at (point))))
+      (when (< (treesit-node-start node)
+               (pos-bol 2))
+        (when (equal (treesit-node-type (treesit-node-parent node))
+                     "ERROR")
+          (setq node (treesit-node-parent node)))
+        (let ((prev-sibling (treesit-node-prev-sibling node)))
+          (when (spthy-ts-mode--closing-rule-delimiter-p node)
+            (let ((marker (point-marker)))
+              (back-to-indentation)
+              (insert " ")
+              (if (equal (point-marker) marker)
+                  (backward-char)
+                (goto-char marker)))))))))
 
 (defun spthy-ts-mode--matching-bracket-next-sibling (node parent _bol &rest _)
   (let* ((siblings
