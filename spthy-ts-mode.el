@@ -316,8 +316,9 @@
     (cond ((equal (treesit-node-type parent) "quantified_formula")
            `(,(treesit-node-start parent) . ,spthy-ts-mode-indent-offset))
           ((and
+            ;; TODO is this still necessary?
             (not (member (treesit-node-type parent)
-                         '("lemma" "diff_lemma")))
+                         '("lemma" "restriction")))
             (treesit-parent-until node #'formula-node-p 'include-node))
            (let* ((maybe-quantifier-child
                    (treesit-parent-until parent #'parent-quantifier-prev-line
@@ -338,7 +339,7 @@
 (defun spthy-ts-mode--incomplete-let-indent-rule (node parent _bol &rest _)
   (when-let* ((let-pos (save-excursion
                          (forward-line 0)
-                         (spthy-ts-mode--goto-previous-non-comment-node)
+                         (spthy-ts-mode--goto-prev-non-comment-node)
                          (when (looking-at "let")
                            (point)))))
     `(,let-pos . ,spthy-ts-mode-indent-offset)))
@@ -387,26 +388,44 @@
 (defun spthy-ts-mode--non-comment-node-p (node)
   (not (member (treesit-node-type node) '("single_comment" "multi_comment"))))
 
-(defun spthy-ts-mode--goto-previous-non-comment-node ()
+(defun spthy-ts-mode--goto-prev-non-comment-node ()
   (treesit-search-forward-goto
    (treesit-node-at (point))
    #'spthy-ts-mode--non-comment-node-p 'start 'backward 'all))
 
-;; TODO need extra case when on empty line
-(defun spthy-ts-mode--previous-node-comma-p (node parent _bol &rest _)
+;; TODO need extra case when on empty line (handle in main-indent-rule later)
+(defun spthy-ts-mode--prev-node-comma-p (node parent _bol &rest _)
   (and (save-excursion
          (forward-line 0)
-         (spthy-ts-mode--goto-previous-non-comment-node)
+         (spthy-ts-mode--goto-prev-non-comment-node)
          (looking-at ","))
        ;; (or (equal (treesit-node-type node) "ERROR")
        ;;     (equal (treesit-node-type parent) "ERROR"))
        ))
 
-(defun spthy-ts-mode--previous-node-colon-p (node parent _bol &rest _)
+(defun spthy-ts-mode--prev-node-colon-p (node parent _bol &rest _)
   (save-excursion
     (forward-line 0)
-    (spthy-ts-mode--goto-previous-non-comment-node)
+    (spthy-ts-mode--goto-prev-non-comment-node)
     (looking-at ":")))
+
+(defun spthy-ts-mode--prev-node-opening-rule-delimiter-p
+    (_node _parent _bol &rest _)
+  (save-excursion
+    (forward-line 0)
+    (spthy-ts-mode--goto-prev-non-comment-node)
+    (looking-at (regexp-opt '("[" "--[")))))
+
+(defun spthy-ts-mode--prev-node-premise-end-p
+    (_node _parent _bol &rest _)
+  (save-excursion
+    (forward-line 0)
+    (spthy-ts-mode--goto-prev-non-comment-node)
+    (let ((node (treesit-node-at (point))))
+      (and (equal (treesit-node-type node) "]")
+           (equal (treesit-node-type
+                   (treesit-node-parent node))
+                  "premise")))))
 
 (defun spthy-ts-mode--first-sibling-comma-or-bracket
     (node parent _bol &rest _)
@@ -418,7 +437,7 @@
     (let ((comma-node
            (save-excursion
              (forward-line 0)
-             (spthy-ts-mode--goto-previous-non-comment-node)
+             (spthy-ts-mode--goto-prev-non-comment-node)
              (spthy-ts-mode--largest-node-at (point)))))
       (spthy-ts-mode--first-sibling-start
        comma-node (treesit-node-parent comma-node) nil))))
@@ -433,16 +452,19 @@
           (lambda (nod) (equal (treesit-node-type nod) "\""))))))
     (< (treesit-node-start quote-child) (point))))
 
+(defun spthy-ts-mode--end-of-prev-node
+    (_node _parent _bol)
+  (save-excursion
+    (forward-line 0)
+    (spthy-ts-mode--goto-prev-non-comment-node)
+    (treesit-node-end (treesit-node-at (point)))))
+
 ;; TODO unify indentation handling of action facts,
 ;; terms etc. in formulas, rules and processes
-;; TODO consider matching first child, then anchor to first sibling (as is done already): `match' matcher
-;; https://www.gnu.org/software/emacs/manual/html_node/elisp/Parser_002dbased-Indentation.html
-;; TODO indent when braces on own lines:
-;; [
-;;   Fr(x),
-;;   Bla(y)
-;; ]
-;; TODO indent correctly after let ENTER in rules
+;; perhaps main-indent-rule: Combine within-proof formula-indent-rule and within fact, nary_app, predicate_ref () or <>
+;; consider ident() anchoring to min of (_start, ident_start+offset
+;; perhaps don't combine within-proof though in order to not touch proofs
+;; TODO indent processes
 (defvar spthy-ts-mode--indent-settings
   `((spthy
      ((or (parent-is "^theory$")
@@ -456,13 +478,11 @@
       no-indent)
      spthy-ts-mode--formula-indent-rule
      ((or (n-p-gp "\"" "^lemma$" nil)
+          (n-p-gp "\"" "^restriction$" nil)
           (node-is "^trace_quantifier$"))
       column-0 ,spthy-ts-mode-indent-offset)
-     ;; Handle empty line inside "" (for writing lemmas).
-     ((and (or (parent-is "^lemma$")
-               (parent-is "^diffLemma$"))
-           spthy-ts-mode--quote-sibling-before-p)
-      prev-line 0)
+     ((and no-node spthy-ts-mode--quote-sibling-before-p)
+      prev-line 0) ; for writing lemmas
      ((parent-is
        ,(regexp-opt '( "set_lock" "remove_lock" "input" "read_state"
                        "delete_state" "set_state" "output" "event"
@@ -473,9 +493,11 @@
       parent 2)
      ((n-p-gp "^in$" "^rule_let_block$" nil)
       parent 0)
-     (spthy-ts-mode--previous-node-comma-p
+     (spthy-ts-mode--prev-node-comma-p
       spthy-ts-mode--first-sibling-comma-or-bracket 0)
-     ((node-is "^action_fact$")
+     ((or (node-is "^action_fact$")
+          ;; Handle incomplete rules.
+          spthy-ts-mode--prev-node-premise-end-p)
       column-0 ,(max 0 (- spthy-ts-mode-indent-offset 2)))
      ((node-is "^-->$")
       column-0 ,(max 0 (- spthy-ts-mode-indent-offset 1)))
@@ -483,7 +505,13 @@
           (node-is "^conclusion$"))
       column-0 ,spthy-ts-mode-indent-offset)
      spthy-ts-mode--incomplete-let-indent-rule
-     ;; TODO correctly indent incomplete rules
+     ((match nil ,(regexp-opt
+                   '( "premise" "action_fact" "conclusion"))
+             nil 1 1)
+      parent ,spthy-ts-mode-indent-offset)
+     ;; Handle incomplete rules.
+     (spthy-ts-mode--prev-node-opening-rule-delimiter-p
+      spthy-ts-mode--end-of-prev-node ,(- spthy-ts-mode-indent-offset 1))
      ((or (n-p-gp nil nil "^theory$")
           (parent-is "^simple_rule$")
           (n-p-gp nil nil "^tactic$")
@@ -494,7 +522,7 @@
       spthy-ts-mode--first-sibling-start 0)
      ((or (node-is ")") (node-is "]") (node-is ">"))
       spthy-ts-mode--prev-matching-bracket-start 0)
-     (spthy-ts-mode--previous-node-colon-p
+     ((and no-node spthy-ts-mode--prev-node-colon-p)
       column-0 ,spthy-ts-mode-indent-offset)
      (catch-all prev-line 0))))
 
@@ -538,7 +566,7 @@
     (modify-syntax-entry ?$   "_"      table)
     (modify-syntax-entry ?~   "_"      table)
     ;; The exclamation mark for persistent facts
-    ;; is part of their name.
+    ;; can be considered part of their name.
     (modify-syntax-entry ?!   "_"      table)
     (modify-syntax-entry ?+   "."      table)
     (modify-syntax-entry ?-   "."      table)
