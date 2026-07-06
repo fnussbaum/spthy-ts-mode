@@ -512,11 +512,17 @@
       column-0 ,spthy-ts-mode-indent-offset)
      (catch-all prev-line 0))))
 
-;; TODO include modulo? include [left], [right]
 (defun spthy-ts-mode--defun-name (node)
   (pcase (treesit-node-type node)
     ((or "lemma" "diff_lemma")
-     (treesit-node-text (treesit-node-child-by-field-name node "lemma_identifier")))
+     (concat
+      (treesit-node-text (treesit-node-child-by-field-name node "lemma_identifier"))
+      (mapconcat
+       #'treesit-node-text
+       (treesit-filter-child
+        node
+        (lambda (nod)
+          (equal (treesit-node-type nod) "diff_lemma_attrs"))))))
     ("rule"
      (treesit-node-text (treesit-node-child-by-field-name
                          (treesit-node-child node 0 t) "rule_identifier")))
@@ -529,7 +535,9 @@
 (defvar spthy-ts-mode--imenu-settings
   '(( "Rule" "^rule$"
       spthy-ts-mode--treesit-non-leaf-p nil)
-    ( "Lemma" "lemma"
+    ( "Lemma" "^lemma$"
+      spthy-ts-mode--treesit-non-leaf-p nil)
+    ( "diffLemma" "^diff_lemma$"
       spthy-ts-mode--treesit-non-leaf-p nil)
     ( "Restriction" "^restriction$"
       spthy-ts-mode--treesit-non-leaf-p nil)))
@@ -654,8 +662,6 @@ just toggles it when zero or omitted."
     ;; calling `treesit-major-mode-setup' below.
     (setq-local treesit-simple-indent-rules spthy-ts-mode--indent-settings)
 
-    ;; TODO is this redundant due to `treesit-thing-settings'?
-    (setq-local treesit-defun-type-regexp nil)
     (setq-local treesit-defun-name-function #'spthy-ts-mode--defun-name)
     (setq-local treesit-defun-tactic 'top-level)
     (setq-local treesit-simple-imenu-settings spthy-ts-mode--imenu-settings)
@@ -685,8 +691,9 @@ just toggles it when zero or omitted."
                '(spthy-ts-mode
                  :toplevel "Rule" :types
                  ((?r "Rule" font-lock-variable-name-face)
+                  (?R "Restriction" font-lock-function-name-face)
                   (?l "Lemma" font-lock-function-name-face)
-                  (?R "Restriction" font-lock-function-name-face)))))
+                  (?d "diffLemma" font-lock-function-name-face)))))
 
 ;;;###autoload
 (with-eval-after-load 'treesit
