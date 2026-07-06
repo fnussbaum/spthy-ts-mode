@@ -446,6 +446,20 @@
     (_node _parent _bol)
   (treesit-node-end (spthy-ts-mode--prev-non-comment-node)))
 
+;; Adapted from `standalone-parent' in `treesit-simple-indent-presets'.
+;; TODO adapt with nested_process nodes in grammar?
+(defun spthy-ts-mode--standalone-until-choice (_node parent &rest _)
+  (save-excursion
+    (catch 'term
+      (while parent
+        (goto-char (treesit-node-start parent))
+        (when (or (member (treesit-node-type (treesit-node-parent parent))
+                          '("deterministic_choice" "non_deterministic_choice"))
+                  (looking-back (rx bol (* whitespace))
+                                (line-beginning-position)))
+          (throw 'term (point)))
+        (setq parent (treesit-node-parent parent))))))
+
 ;; TODO unify indentation handling of action facts,
 ;; terms etc. in formulas, rules and processes
 ;; perhaps main-indent-rule: Combine within-proof formula-indent-rule and within fact, nary_app, predicate_ref () or <>
@@ -472,7 +486,7 @@
                        "delete_state" "set_state" "output" "event"
                        "process_let" "binding" "conditional")
                     'symbol))
-      standalone-parent 0)
+      spthy-ts-mode--standalone-until-choice 0)
      ((n-p-gp "^]->$" "^action_fact$" nil)
       parent 2)
      ((n-p-gp "^in$" "^rule_let_block$" nil)
