@@ -42,9 +42,6 @@
   '(("--\\[" " ]->" t))
   "")
 
-(defcustom spthy-ts-mode-space-before-closing-rule-delimiters t
-  "")
-
 (defvar spthy-ts-mode--tokens
   '((general "theory" "begin" "end" "builtins" "functions" "export"
              "options" "equations" "predicates" "macros" "heuristic"
@@ -358,25 +355,6 @@
      node
      #'proof-node-p 'include-node)))
 
-(defun spthy-ts-mode--indent-line ()
-  (treesit-indent)
-  ;; Insert a space before closing rule delimiters.
-  (when spthy-ts-mode-space-before-closing-rule-delimiters
-    (let ((node (treesit-node-at (point))))
-      (when (< (treesit-node-start node)
-               (pos-bol 2))
-        (when (equal (treesit-node-type (treesit-node-parent node))
-                     "ERROR")
-          (setq node (treesit-node-parent node)))
-        (let ((prev-sibling (treesit-node-prev-sibling node)))
-          (when (spthy-ts-mode--closing-rule-delimiter-p node)
-            (let ((marker (point-marker)))
-              (back-to-indentation)
-              (insert " ")
-              (if (equal (point-marker) marker)
-                  (backward-char)
-                (goto-char marker)))))))))
-
 (defun spthy-ts-mode--matching-bracket-next-sibling (node parent _bol &rest _)
   (let* ((siblings
           (cl-member-if
@@ -672,8 +650,6 @@ just toggles it when zero or omitted."
                        spthy-ts-mode--font-lock-rules))
     (setq-local syntax-propertize-function #'spthy-ts-mode--syntax-propertize)
 
-    ;; Note that `indent-line-function' must be set after
-    ;; calling `treesit-major-mode-setup' below.
     (setq-local treesit-simple-indent-rules spthy-ts-mode--indent-settings)
 
     (setq-local treesit-defun-name-function #'spthy-ts-mode--defun-name)
@@ -697,8 +673,7 @@ just toggles it when zero or omitted."
                   ( keyword tactic proof definition action-fact builtin operator)
                   ( fact delimiter)))
 
-    (treesit-major-mode-setup)
-    (setq-local indent-line-function #'spthy-ts-mode--indent-line)))
+    (treesit-major-mode-setup)))
 
 (with-eval-after-load 'consult-imenu
   (add-to-list 'consult-imenu-config
