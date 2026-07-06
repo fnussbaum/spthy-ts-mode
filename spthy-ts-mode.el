@@ -48,7 +48,7 @@
              "tactic" "rule" "variants" "axiom" "restriction" "process"
              "lemma" "diffLemma" "all-traces" "exists-trace" "All" "Ex"
              "let" (rule_let_block "in") "fresh" "not")
-    (proof "next" "case" "by" "ATTACK" (solved) (mirrored) (cases) "qed"
+    (proof "next" "case" "by" "ATTACK" ((solved)) ((mirrored)) "qed"
            "contradiction" "backward-search" "simplify"
            "induction" "rule-equivalence")
     (tactic "presort" "prio" "deprio" "smallest" "id")
@@ -185,7 +185,6 @@
       ((nat_var ["nat" ":"] @font-lock-comment-face))
       ((any_var ["ANY" ":"] @font-lock-comment-face)))
 
-     ;; TODO factor out alist-get function with list handling
      :language spthy
      :feature keyword
      (([,@(spthy-ts-mode--tokens-add-face
