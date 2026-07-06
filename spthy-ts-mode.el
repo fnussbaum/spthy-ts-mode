@@ -152,6 +152,11 @@
             ((spthy-ts-mode--fact-font-lock-enabled)
              ',other-face))))))
 
+(defun spthy-ts-mode--tokens-add-face (type face)
+  (mapcar
+   (lambda (token) (append (ensure-list token) (list face)))
+   (alist-get type spthy-ts-mode--tokens)))
+
 (defvar spthy-ts-mode--font-lock-rules
   `( :language spthy
      :feature comment
@@ -167,13 +172,15 @@
 
      :language spthy
      :feature operator
-     (([,@(alist-get 'logical-operators spthy-ts-mode--tokens)] @font-lock-operator-face)
-      ([,@(alist-get 'rule-delimiters spthy-ts-mode--tokens)] @font-lock-delimiter-face))
+     (([,@(spthy-ts-mode--tokens-add-face
+           'logical-operators '@font-lock-operator-face)])
+      ([,@(spthy-ts-mode--tokens-add-face
+           'rule-delimiters '@font-lock-delimiter-face)]))
 
      ;; Inspired by `spthy-mode'.
      :language spthy
      :feature quiet
-     (([,@(alist-get 'quiet spthy-ts-mode--tokens)] @font-lock-comment-face)
+     (([,@(spthy-ts-mode--tokens-add-face 'general '@font-lock-quiet-face)])
       ((pub_var ["pub" ":"] @font-lock-comment-face))
       ((fresh_var ["fresh" ":"] @font-lock-comment-face))
       ((msg_var_or_nullary_fun ["msg" ":"] @font-lock-comment-face))
@@ -184,14 +191,12 @@
      ;; TODO factor out alist-get function with list handling
      :language spthy
      :feature keyword
-     (([,@(mapcar (lambda (kw) (if (listp kw) (append kw (list '@font-lock-keyword-face)) kw))
-                  (alist-get 'general spthy-ts-mode--tokens))]
-       @font-lock-keyword-face)
-      ([,@(alist-get 'preprocessor spthy-ts-mode--tokens)]
-       @font-lock-preprocessor-face)
-      ([,@(mapcar (lambda (kw) (if (listp kw) (append kw (list '@font-lock-keyword-face)) kw))
-                  (alist-get 'processes spthy-ts-mode--tokens))]
-       @font-lock-keyword-face))
+     (([,@(spthy-ts-mode--tokens-add-face
+           'general '@font-lock-keyword-face)])
+      ([,@(spthy-ts-mode--tokens-add-face
+           'preprocessor '@font-lock-preprocessor-face)])
+      ([,@(spthy-ts-mode--tokens-add-face
+           'processes '@font-lock-keyword-face)]))
 
      :language spthy
      :feature definition
@@ -244,17 +249,16 @@
 
      :language spthy
      :feature proof
-     (([,@(alist-get 'proof spthy-ts-mode--tokens)]
-       @font-lock-keyword-face)
+     (([,@(spthy-ts-mode--tokens-add-face 'proof '@font-lock-keyword-face)])
       (["step" "solve"] @font-lock-function-call-face)
       (["sorry"] @font-lock-warning-face))
 
      :language spthy
      :feature tactic
-     (([,@(alist-get 'tactic spthy-ts-mode--tokens)]
-       @font-lock-preprocessor-face)
-      ([,@(alist-get 'tactic-function spthy-ts-mode--tokens)]
-       @font-lock-preprocessor-face))))
+     (([,@(spthy-ts-mode--tokens-add-face
+           'tactic '@font-lock-preprocessor-face)])
+      ([,@(spthy-ts-mode--tokens-add-face
+           'tactic-function '@font-lock-preprocessor-face)]))))
 
 (defun spthy-ts-mode--largest-node-at (pos)
   (treesit-parent-while
