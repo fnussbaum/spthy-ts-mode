@@ -141,8 +141,9 @@ just toggles it when zero or omitted."
   '("K" "KU" "KD"))
 
 (defun spthy-ts-mode--fact-font-lock-enabled ()
-  (cl-loop for (_ enable feature _) in treesit-font-lock-settings
-           thereis (and (eq feature 'fact) enable)))
+  (cl-loop for setting in treesit-font-lock-settings
+           thereis (and (eq (treesit-font-lock-setting-feature setting) 'fact)
+                        (treesit-font-lock-setting-enable setting))))
 
 ;; TODO distinction between variable-use, variable-name faces does not really make sense
 (cl-loop
