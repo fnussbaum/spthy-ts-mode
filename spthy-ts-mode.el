@@ -111,7 +111,7 @@ applies the appropriate text property to alter their syntax class."
           (node-type (treesit-node-type node))
           (parent-type (treesit-node-type (treesit-node-parent node))))
       (cond
-       ;; TODO try making electric pairs work (handle error nodes correctly)
+       ;; FIXME Try making electric pairs work (handle error nodes)
        ((and (member node-type '("<" ">"))
              (equal parent-type "tuple_term"))
         (put-text-property (match-beginning 0)
@@ -223,7 +223,8 @@ applies the appropriate text property to alter their syntax class."
            thereis (and (eq (treesit-font-lock-setting-feature setting) 'fact)
                         (treesit-font-lock-setting-enable setting))))
 
-;; TODO distinction between variable-use, variable-name faces does not really make sense
+;; The distinction between variable-use, variable-name faces might not
+;; make too much sense.
 (cl-loop
  for (name builtin-face other-face builtin-list)
  in '((spthy-ts-mode--add-face-action-constraint
@@ -368,7 +369,6 @@ applies the appropriate text property to alter their syntax class."
     (or (member type '("]" "]->"))
         (and (equal type "ERROR")
              (treesit-node-match-p parent "^action_fact$")
-             ;; TODO also check for consistent parent/gp?
              (save-excursion
                (goto-char bol)
                (or (looking-at-p
@@ -561,7 +561,6 @@ applies the appropriate text property to alter their syntax class."
 ;; perhaps main-indent-rule: Combine within-proof formula-indent-rule and within fact, nary_app, predicate_ref () or <>
 ;; consider ident() anchoring to min of (_start, ident_start+offset
 ;; perhaps don't combine within-proof though in order to not touch proofs
-;; TODO indent processes
 (defvar spthy-ts-mode--indent-settings
   `((spthy
      ((or (parent-is "^theory$")
@@ -745,10 +744,6 @@ applies the appropriate text property to alter their syntax class."
 (with-eval-after-load 'treesit
   (when (treesit-ready-p 'spthy)
     (add-to-list 'auto-mode-alist '("\\.spthy\\'" . spthy-ts-mode))))
-
-;; TODO remove
-(add-hook 'spthy-ts-mode-hook 'spacemacs//deactivate-smartparens)
-(add-hook 'spthy-ts-mode-hook 'electric-pair-local-mode)
 
 (provide 'spthy-ts-mode)
 
