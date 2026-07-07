@@ -520,7 +520,8 @@ just toggles it when zero or omitted."
       spthy-ts-mode--prev-matching-bracket-start 0)
      ((and no-node (spthy-ts-mode--prev-node-is ":"))
       column-0 ,spthy-ts-mode-indent-offset)
-     (catch-all prev-line 0))))
+     (no-node prev-line 0)
+     (catch-all parent 0))))
 
 ;; See `spthy-ts-mode--syntax-propertize' for special cases.
 (defvar spthy-ts-mode--syntax-table
