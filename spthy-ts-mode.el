@@ -60,6 +60,80 @@ just toggles it when zero or omitted."
         (setq-local comment-start starter
                     comment-end ender)))))
 
+(defvar spthy-ts-mode--syntax-table
+  (let ((table (make-syntax-table)))
+    (modify-syntax-entry ?_   "_"      table)
+    (modify-syntax-entry ?%   "_"      table)
+    (modify-syntax-entry ?$   "_"      table)
+    (modify-syntax-entry ?~   "_"      table)
+    ;; The exclamation mark for persistent facts
+    ;; can be considered part of their name.
+    (modify-syntax-entry ?!   "_"      table)
+    (modify-syntax-entry ?+   "."      table)
+    (modify-syntax-entry ?-   "."      table)
+    (modify-syntax-entry ?=   "."      table)
+    (modify-syntax-entry ?<   "."      table)
+    (modify-syntax-entry ?>   "."      table)
+    (modify-syntax-entry ?&   "."      table)
+    (modify-syntax-entry ?|   "."      table)
+    (modify-syntax-entry ?@   "."      table)
+    (modify-syntax-entry ?⊕   "."      table)
+    (modify-syntax-entry ?∃   "."      table)
+    (modify-syntax-entry ?∀   "."      table)
+    (modify-syntax-entry ?∨   "."      table)
+    (modify-syntax-entry ?∧   "."      table)
+    (modify-syntax-entry ?¬   "."      table)
+    (modify-syntax-entry ?⇒   "."      table)
+    (modify-syntax-entry ?⇔   "."      table)
+    (modify-syntax-entry ?\'  "\""     table)
+    (modify-syntax-entry ?/   ". 124b" table)
+    (modify-syntax-entry ?*   ". 23"   table)
+    (modify-syntax-entry ?\n  "> b"    table)
+    (modify-syntax-entry ?\^m "> b"    table)
+    table))
+
+;; Adapted from `c-ts-mode--syntax-propertize'.
+(defun spthy-ts-mode--syntax-propertize (beg end)
+  "Apply syntax text property to template delimiters between BEG and END.
+
+< and > are usually punctuation, e.g., in ]->, or as comparison operators;
+but when used for tuples, they should be considered pairs.
+A period . may be part of a variable identifier.
+The replication operator ! needs to be considered punctuation.
+
+This function checks for <, >, . and ! characters in the changed RANGES and
+applies the appropriate text property to alter their syntax class."
+  (goto-char beg)
+  (while (re-search-forward (rx (or "<" ">" "." "!")) end t)
+    (let* ((node (treesit-node-at (match-beginning 0)))
+          (node-type (treesit-node-type node))
+          (parent-type (treesit-node-type (treesit-node-parent node))))
+      (cond
+       ;; TODO try making electric pairs work (handle error nodes correctly)
+       ((and (member node-type '("<" ">"))
+             (equal parent-type "tuple_term"))
+        (put-text-property (match-beginning 0)
+                           (match-end 0)
+                           'syntax-table
+                           (pcase (char-before)
+                             (?< '(4 . ?>))
+                             (?> '(5 . ?<)))))
+       ((and (equal node-type ".")
+             (member parent-type
+                     '("pub_var" "fresh_var" "nat_var"
+                       "msg_var_or_nullary_fun" "temporal_var"
+                       "temporal_var_optional_prefix")))
+        (put-text-property (match-beginning 0)
+                           (match-end 0)
+                           'syntax-table
+                           '(3 . ?.)))
+       ((and (equal node-type "!")
+             (equal parent-type "replication"))
+        (put-text-property (match-beginning 0)
+                           (match-end 0)
+                           'syntax-table
+                           '(1 . ?!)))))))
+
 (defvar spthy-ts-mode--tokens
   '((general "theory" "begin" "end" "builtins" "functions" "export"
              "options" "equations" "predicates" "macros" "heuristic"
@@ -336,7 +410,6 @@ just toggles it when zero or omitted."
     (cond ((equal (treesit-node-type parent) "quantified_formula")
            `(,(treesit-node-start parent) . ,spthy-ts-mode-indent-offset))
           ((and
-            ;; TODO is this still necessary?
             (not (member (treesit-node-type parent)
                          '("lemma" "restriction")))
             (treesit-parent-until node #'formula-node-p 'include-node))
@@ -522,81 +595,6 @@ just toggles it when zero or omitted."
       column-0 ,spthy-ts-mode-indent-offset)
      (no-node prev-line 0)
      (catch-all parent 0))))
-
-;; See `spthy-ts-mode--syntax-propertize' for special cases.
-(defvar spthy-ts-mode--syntax-table
-  (let ((table (make-syntax-table)))
-    (modify-syntax-entry ?_   "_"      table)
-    (modify-syntax-entry ?%   "_"      table)
-    (modify-syntax-entry ?$   "_"      table)
-    (modify-syntax-entry ?~   "_"      table)
-    ;; The exclamation mark for persistent facts
-    ;; can be considered part of their name.
-    (modify-syntax-entry ?!   "_"      table)
-    (modify-syntax-entry ?+   "."      table)
-    (modify-syntax-entry ?-   "."      table)
-    (modify-syntax-entry ?=   "."      table)
-    (modify-syntax-entry ?<   "."      table)
-    (modify-syntax-entry ?>   "."      table)
-    (modify-syntax-entry ?&   "."      table)
-    (modify-syntax-entry ?|   "."      table)
-    (modify-syntax-entry ?@   "."      table)
-    (modify-syntax-entry ?⊕   "."      table)
-    (modify-syntax-entry ?∃   "."      table)
-    (modify-syntax-entry ?∀   "."      table)
-    (modify-syntax-entry ?∨   "."      table)
-    (modify-syntax-entry ?∧   "."      table)
-    (modify-syntax-entry ?¬   "."      table)
-    (modify-syntax-entry ?⇒   "."      table)
-    (modify-syntax-entry ?⇔   "."      table)
-    (modify-syntax-entry ?\'  "\""     table)
-    (modify-syntax-entry ?/   ". 124b" table)
-    (modify-syntax-entry ?*   ". 23"   table)
-    (modify-syntax-entry ?\n  "> b"    table)
-    (modify-syntax-entry ?\^m "> b"    table)
-    table))
-
-;; Adapted from `c-ts-mode--syntax-propertize'.
-(defun spthy-ts-mode--syntax-propertize (beg end)
-  "Apply syntax text property to template delimiters between BEG and END.
-
-< and > are usually punctuation, e.g., in ]->, or as comparison operators;
-but when used for tuples, they should be considered pairs.
-A period . may be part of a variable identifier.
-The replication operator ! needs to be considered punctuation.
-
-This function checks for <, >, . and ! characters in the changed RANGES and
-applies the appropriate text property to alter their syntax class."
-  (goto-char beg)
-  (while (re-search-forward (rx (or "<" ">" "." "!")) end t)
-    (let* ((node (treesit-node-at (match-beginning 0)))
-          (node-type (treesit-node-type node))
-          (parent-type (treesit-node-type (treesit-node-parent node))))
-      (cond
-       ;; TODO try making electric pairs work (handle error nodes correctly)
-       ((and (member node-type '("<" ">"))
-             (equal parent-type "tuple_term"))
-        (put-text-property (match-beginning 0)
-                           (match-end 0)
-                           'syntax-table
-                           (pcase (char-before)
-                             (?< '(4 . ?>))
-                             (?> '(5 . ?<)))))
-       ((and (equal node-type ".")
-             (member parent-type
-                     '("pub_var" "fresh_var" "nat_var"
-                       "msg_var_or_nullary_fun" "temporal_var"
-                       "temporal_var_optional_prefix")))
-        (put-text-property (match-beginning 0)
-                           (match-end 0)
-                           'syntax-table
-                           '(3 . ?.)))
-       ((and (equal node-type "!")
-             (equal parent-type "replication"))
-        (put-text-property (match-beginning 0)
-                           (match-end 0)
-                           'syntax-table
-                           '(1 . ?!)))))))
 
 (defun spthy-ts-mode--node-defun-p (node)
   (and (equal (treesit-node-type (treesit-node-parent node)) "theory")
