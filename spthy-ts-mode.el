@@ -362,42 +362,51 @@ applies the appropriate text property to alter their syntax class."
      (and (eq pos (treesit-node-start node))
           (not (treesit-node-eq node (treesit-buffer-root-node)))))))
 
-(defun spthy-ts-mode--closing-rule-delimiter-p (node)
+;; TODO what about [] rule, lemma annotations?
+(defun spthy-ts-mode--closing-rule-delimiter-p (node parent bol &rest _)
   (let ((type (treesit-node-type node)))
     (or (member type '("]" "]->"))
         (and (equal type "ERROR")
+             (treesit-node-match-p parent "^action_fact$")
              ;; TODO also check for consistent parent/gp?
-             (or (looking-at-p
-                  (concat "[[:blank:]]*" (regexp-quote "]->")))
-                 (looking-at-p
-                  (concat "[[:blank:]]*" (regexp-quote "]"))))))))
+             (save-excursion
+               (goto-char bol)
+               (or (looking-at-p
+                    (concat "[[:blank:]]*" (regexp-quote "]->")))
+                   (looking-at-p
+                    (concat "[[:blank:]]*" (regexp-quote "]")))))))))
 
 (defun spthy-ts-mode--prev-matching-bracket-node (node)
   (let* ((type (treesit-node-type node))
          (matching-bracket
-          (pcase type
-            (">"   "<")
-            (")"   "(")
-            ((or
-              "]->"
-              (and "ERROR"
-                   (guard (looking-at-p
-                           (concat "[[:blank:]]*" (regexp-quote "]->"))))))
-             "--[")
-            ((or
-              "]"
-              (and "ERROR"
-                   (guard (looking-at-p
-                           (concat "[[:blank:]]*" (regexp-quote "]"))))))
-             "["))))
+          (save-excursion
+            (goto-char (treesit-node-start node))
+            (pcase type
+              (">"   "<")
+              (")"   "(")
+              ((or
+                "]->"
+                (and "ERROR"
+                     (guard (looking-at-p
+                             (concat "[[:blank:]]*" (regexp-quote "]->"))))))
+               "--[")
+              ((or
+                "]"
+                (and "ERROR"
+                     (guard (looking-at-p
+                             (concat "[[:blank:]]*" (regexp-quote "]"))))))
+               "[")))))
     (while (and node (not (equal (treesit-node-type node) matching-bracket)))
       (setq node (treesit-node-prev-sibling node)))
     node))
 
-(defun spthy-ts-mode--prev-matching-bracket-start (node _parent _bol &rest _)
-  (treesit-node-start (spthy-ts-mode--prev-matching-bracket-node node)))
+(defun spthy-ts-mode--prev-matching-bracket-start (node &rest _)
+  ;; For --[, we need the location of the bracket [.
+  (- (treesit-node-end
+      (spthy-ts-mode--prev-matching-bracket-node node))
+     1))
 
-(defun spthy-ts-mode--formula-indent-rule (node parent _bol &rest _)
+(defun spthy-ts-mode--formula-indent-rule (node parent &rest _)
   (cl-flet* ((formula-node-p (nod)
                (or (member (treesit-node-type nod)
                            '("nested_formula" "conjunction"
@@ -435,14 +444,14 @@ applies the appropriate text property to alter their syntax class."
                         (treesit-node-start
                          maybe-quantifier-child))))))))))
 
-(defun spthy-ts-mode--incomplete-let-indent-rule (_node _parent _bol &rest _)
-  (when-let* ((node (spthy-ts-mode--prev-non-comment-node))
+(defun spthy-ts-mode--incomplete-let-indent-rule (_node _parent bol &rest _)
+  (when-let* ((node (spthy-ts-mode--prev-non-comment-node bol))
               (let-pos
                (when (equal (treesit-node-type node) "let")
                  (treesit-node-start node))))
     `(,let-pos . ,spthy-ts-mode-indent-offset)))
 
-(defun spthy-ts-mode--within-proof-p (node &optional _parent _bol &rest _)
+(defun spthy-ts-mode--within-proof-p (node &rest _)
   (cl-flet ((proof-node-p (nod)
               (or (member (treesit-node-type nod)
                           '("cases" "case"))
@@ -452,7 +461,7 @@ applies the appropriate text property to alter their syntax class."
      node
      #'proof-node-p 'include-node)))
 
-(defun spthy-ts-mode--matching-bracket-next-sibling (node parent _bol &rest _)
+(defun spthy-ts-mode--matching-bracket-next-sibling (node parent &rest _)
   (let* ((siblings
           (cl-member-if
            (lambda (nod)
@@ -461,7 +470,7 @@ applies the appropriate text property to alter their syntax class."
     (treesit-node-start
      (nth 1 siblings))))
 
-(defun spthy-ts-mode--first-sibling-start (node parent _bol &rest _)
+(defun spthy-ts-mode--first-sibling-start (node parent &rest _)
   ;; We consider named siblings and "!" nodes.
   (treesit-node-start
    (car (cl-member-if (lambda (nod)
@@ -472,28 +481,36 @@ applies the appropriate text property to alter their syntax class."
 (defun spthy-ts-mode--non-comment-node-p (node)
   (not (member (treesit-node-type node) '("single_comment" "multi_comment"))))
 
-(defun spthy-ts-mode--prev-non-comment-node ()
+(defun spthy-ts-mode--prev-non-comment-node (bol)
   (save-excursion
-    (forward-line 0)
+    (goto-char bol)
     (treesit-search-forward-goto
      (treesit-node-at (point))
      #'spthy-ts-mode--non-comment-node-p 'start 'backward 'all)
     (treesit-node-at (point))))
 
-(defun spthy-ts-mode--prev-node-is (node-t &optional parent-t)
-  (lambda (_node _parent _bol &rest _)
-    (let ((node (spthy-ts-mode--prev-non-comment-node)))
-      (and (or (null node-t)
-               (string-match-p
-                node-t (or (treesit-node-type node) "")))
-           (or (null parent-t)
-               (string-match-p
-                parent-t
-                (treesit-node-type
-                 (treesit-node-parent node))))))))
+(defun spthy-ts-mode--prev-node-is (node-t &optional parent-t prev-line)
+  (lambda (_node _parent bol &rest _)
+    (let ((node (spthy-ts-mode--prev-non-comment-node bol)))
+      (and
+       (not (and prev-line
+                 ;; Return nil when previous line is empty.
+                 ;; TODO does this modify mark?
+                 (save-excursion
+                   (goto-char bol)
+                   (forward-line -1)
+                   (looking-at-p "[[:blank:]]*$"))))
+       (or (null node-t)
+           (string-match-p
+            node-t (or (treesit-node-type node) "")))
+       (or (null parent-t)
+           (string-match-p
+            parent-t
+            (treesit-node-type
+             (treesit-node-parent node))))))))
 
 (defun spthy-ts-mode--first-sibling-comma-or-bracket
-    (node parent _bol &rest _)
+    (node parent bol &rest _)
   (if-let* (node
             (leaf-at-node (treesit-node-at (treesit-node-start node)))
             (_ (member (treesit-node-type leaf-at-node)
@@ -502,12 +519,12 @@ applies the appropriate text property to alter their syntax class."
     (let ((comma-node
            (spthy-ts-mode--largest-node-at
             (treesit-node-start
-             (spthy-ts-mode--prev-non-comment-node)))))
+             (spthy-ts-mode--prev-non-comment-node bol)))))
       (spthy-ts-mode--first-sibling-start
        comma-node (treesit-node-parent comma-node) nil))))
 
 (defun spthy-ts-mode--lemma-quote-before-p
-    (_node parent _bol &rest _)
+    (_node parent &rest _)
   (when-let*
       ((quote-child
         (and (member (treesit-node-type parent) '("lemma" "restriction"))
@@ -518,8 +535,8 @@ applies the appropriate text property to alter their syntax class."
     (< (treesit-node-start quote-child) (point))))
 
 (defun spthy-ts-mode--end-of-prev-node
-    (_node _parent _bol)
-  (treesit-node-end (spthy-ts-mode--prev-non-comment-node)))
+    (_node _parent bol)
+  (treesit-node-end (spthy-ts-mode--prev-non-comment-node bol)))
 
 ;; Adapted from `standalone-parent' in `treesit-simple-indent-presets'.
 (defun spthy-ts-mode--nested-or-standalone-parent (_node parent &rest _)
@@ -545,7 +562,7 @@ applies the appropriate text property to alter their syntax class."
      ((or (parent-is "^theory$")
           (parent-is "^tactic$"))
       column-0 0)
-     ;; Don't interfere with proof formatting when indenting the whole buffer.
+     ;; Don't interfere with proof formatting.
      (spthy-ts-mode--within-proof-p
       no-indent)
      spthy-ts-mode--formula-indent-rule
@@ -566,7 +583,7 @@ applies the appropriate text property to alter their syntax class."
      ((n-p-gp "^in$" "^rule_let_block$" nil)
       parent 0)
      ;; TODO need extra case when on empty line (handle in main-indent-rule later)
-     ((spthy-ts-mode--prev-node-is "^,$")
+     ((spthy-ts-mode--prev-node-is "^,$" nil t)
       spthy-ts-mode--first-sibling-comma-or-bracket 0)
      ((or (node-is "^action_fact$")
           ;; Handle incomplete rules.
@@ -579,25 +596,43 @@ applies the appropriate text property to alter their syntax class."
           (spthy-ts-mode--prev-node-is "^\\]->$" "^action_fact$"))
       column-0 ,spthy-ts-mode-indent-offset)
      spthy-ts-mode--incomplete-let-indent-rule
+     ;; Handle first fact within rule premises and conclusions.
      ((match nil ,(regexp-opt
-                   '( "premise" "action_fact" "conclusion"))
+                   '( "premise" "conclusion"))
              nil 1 1)
-      parent ,spthy-ts-mode-indent-offset)
+      parent 2)
+     ;; Handle first action fact.
+     ((match nil "^action_fact$"
+             nil 1 1)
+      parent 4)
      ;; Handle incomplete rules.
      ((spthy-ts-mode--prev-node-is ,(rx (or "[" "--[")))
-      spthy-ts-mode--end-of-prev-node ,(- spthy-ts-mode-indent-offset 1))
+      spthy-ts-mode--end-of-prev-node 1)
      ((or (n-p-gp nil nil "^theory$")
           (parent-is "^simple_rule$")
           (n-p-gp nil nil "^tactic$")
           (parent-is "^rule_let_block$"))
       first-sibling ,spthy-ts-mode-indent-offset)
+     ((n-p-gp "^,$" "^action_fact$" nil)
+      parent 2)
+     ;; TODO will probably be covered by main-indent-rule
      ((or (query ([(premise) (action_fact) (conclusion)] (_) @foo))
           (query ([(premise) (action_fact) (conclusion)] "!" @foo)))
       spthy-ts-mode--first-sibling-start 0)
-     ((or (node-is ")") (node-is "]") (node-is ">"))
+     ((or (node-is ")") (node-is "]") (node-is ">")
+          ;; Handle the case of comma and empty line:
+          ;; --[ A(x),
+          ;;
+          ;;   ]->
+          spthy-ts-mode--closing-rule-delimiter-p)
       spthy-ts-mode--prev-matching-bracket-start 0)
      ((and no-node (spthy-ts-mode--prev-node-is ":"))
       column-0 ,spthy-ts-mode-indent-offset)
+     ((and no-node (or (parent-is "^premise$")
+                       (parent-is "^conclusion$")))
+      parent 0)
+     ((and no-node (parent-is "^action_fact$"))
+      parent 2)
      (no-node prev-line 0)
      (catch-all parent 0))))
 
