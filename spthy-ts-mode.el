@@ -522,14 +522,13 @@ applies the appropriate text property to alter their syntax class."
   (treesit-node-end (spthy-ts-mode--prev-non-comment-node)))
 
 ;; Adapted from `standalone-parent' in `treesit-simple-indent-presets'.
-;; TODO adapt with nested_process nodes in grammar?
-(defun spthy-ts-mode--standalone-until-choice (_node parent &rest _)
+(defun spthy-ts-mode--nested-or-standalone-parent (_node parent &rest _)
   (save-excursion
     (catch 'term
       (while parent
         (goto-char (treesit-node-start parent))
-        (when (or (member (treesit-node-type (treesit-node-parent parent))
-                          '("deterministic_choice" "non_deterministic_choice"))
+        (when (or (treesit-node-match-p (treesit-node-parent parent)
+                                        "^nested_process$")
                   (looking-back (rx bol (* whitespace))
                                 (line-beginning-position)))
           (throw 'term (point)))
@@ -561,7 +560,7 @@ applies the appropriate text property to alter their syntax class."
                        "delete_state" "set_state" "output" "event"
                        "process_let" "binding" "conditional")
                     'symbol))
-      spthy-ts-mode--standalone-until-choice 0)
+      spthy-ts-mode--nested-or-standalone-parent 0)
      ((n-p-gp "^]->$" "^action_fact$" nil)
       parent 2)
      ((n-p-gp "^in$" "^rule_let_block$" nil)
