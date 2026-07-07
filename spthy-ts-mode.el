@@ -60,6 +60,8 @@ just toggles it when zero or omitted."
         (setq-local comment-start starter
                     comment-end ender)))))
 
+;;; Syntax table
+
 (defvar spthy-ts-mode--syntax-table
   (let ((table (make-syntax-table)))
     (modify-syntax-entry ?_   "_"      table)
@@ -133,6 +135,8 @@ applies the appropriate text property to alter their syntax class."
                            (match-end 0)
                            'syntax-table
                            '(1 . ?!)))))))
+
+;;; Font-lock
 
 (defvar spthy-ts-mode--tokens
   '((general "theory" "begin" "end" "builtins" "functions" "export"
@@ -348,6 +352,8 @@ applies the appropriate text property to alter their syntax class."
            'tactic '@font-lock-preprocessor-face)])
       ([,@(spthy-ts-mode--tokens-add-face
            'tactic-function '@font-lock-preprocessor-face)]))))
+
+;;; Indentation
 
 (defun spthy-ts-mode--largest-node-at (pos)
   (treesit-parent-while
@@ -596,6 +602,8 @@ applies the appropriate text property to alter their syntax class."
      (no-node prev-line 0)
      (catch-all parent 0))))
 
+;;; Things
+
 (defun spthy-ts-mode--node-defun-p (node)
   (and (equal (treesit-node-type (treesit-node-parent node)) "theory")
        (not (member (treesit-node-type node)
@@ -605,6 +613,8 @@ applies the appropriate text property to alter their syntax class."
 (defvar spthy-ts-mode--treesit-things
   '((spthy
      (defun spthy-ts-mode--node-defun-p))))
+
+;;; Imenu
 
 ;; TODO processes
 (defun spthy-ts-mode--defun-name (node)
@@ -647,6 +657,8 @@ applies the appropriate text property to alter their syntax class."
                   (?R "Restriction" font-lock-function-name-face)
                   (?l "Lemma" font-lock-function-name-face)
                   (?d "diffLemma" font-lock-function-name-face)))))
+
+;;; Mode
 
 ;;;###autoload
 (define-derived-mode spthy-ts-mode prog-mode "SPTHY-TS"
