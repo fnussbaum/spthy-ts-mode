@@ -407,13 +407,7 @@ applies the appropriate text property to alter their syntax class."
      1))
 
 (defun spthy-ts-mode--formula-indent-rule (node parent &rest _)
-  (cl-flet* ((formula-node-p (nod)
-               (or (member (treesit-node-type nod)
-                           '("nested_formula" "conjunction"
-                             "disjunction" "iff" "imp"))
-                   (member (treesit-node-field-name nod)
-                           '("formula"))))
-             (above-parent-line-p (nod)
+  (cl-flet* ((above-parent-line-p (nod)
                (< (treesit-node-start nod)
                   (save-excursion
                     (goto-char (treesit-node-start parent))
@@ -422,27 +416,35 @@ applies the appropriate text property to alter their syntax class."
                (let ((nod-parent (treesit-node-parent nod)))
                  (or (equal (treesit-node-type nod-parent) "quantified_formula")
                      (above-parent-line-p nod-parent)))))
-    (cond ((equal (treesit-node-type parent) "quantified_formula")
-           `(,(treesit-node-start parent) . ,spthy-ts-mode-indent-offset))
-          ((and
-            (not (member (treesit-node-type parent)
-                         '("lemma" "restriction")))
-            (treesit-parent-until node #'formula-node-p 'include-node))
-           (let* ((maybe-quantifier-child
-                   (treesit-parent-until parent #'parent-quantifier-prev-line
-                                         'include-node))
-                  (maybe-quantifier
-                   (treesit-node-parent maybe-quantifier-child)))
-             (if (or (not (or (member (treesit-node-type node) '("&" "|" "==>"))
-                              (member (treesit-node-type parent)
-                                      '("conjunction" "disjunction" "imp"))))
-                     (above-parent-line-p maybe-quantifier))
-                 `(,(treesit-node-start parent) . 0)
-               `(,(treesit-node-start maybe-quantifier) .
-                 ,(+ spthy-ts-mode-indent-offset
-                     (- (treesit-node-start parent)
-                        (treesit-node-start
-                         maybe-quantifier-child))))))))))
+    (let* ((maybe-quantifier-child
+            (treesit-parent-until parent #'parent-quantifier-prev-line
+                                  'include-node))
+           (maybe-quantifier
+            (treesit-node-parent maybe-quantifier-child)))
+      (if (or (not (or (member (treesit-node-type node) '("&" "|" "==>"))
+                       (member (treesit-node-type parent)
+                               '("conjunction" "disjunction" "imp"))))
+              (above-parent-line-p maybe-quantifier))
+          `(,(treesit-node-start parent) . 0)
+        `(,(treesit-node-start maybe-quantifier) .
+          ,(+ spthy-ts-mode-indent-offset
+              (- (treesit-node-start parent)
+                 (treesit-node-start
+                  maybe-quantifier-child))))))))
+
+(defun spthy-ts-mode--main-indent-rule (node parent &rest _)
+  (cl-loop for nod = parent then (treesit-node-parent nod)
+           while nod
+           thereis
+           (cond
+            ((or (member (treesit-node-type nod)
+                         '("nested_formula" "conjunction"
+                           "disjunction" "iff" "imp"))
+                 (member (treesit-node-field-name nod)
+                         '("formula")))
+             (spthy-ts-mode--formula-indent-rule node parent))
+            ;; ((member (treesit-node-type nod)))
+            )))
 
 (defun spthy-ts-mode--incomplete-let-indent-rule (_node _parent bol &rest _)
   (when-let* ((node (spthy-ts-mode--prev-non-comment-node bol))
@@ -561,6 +563,7 @@ applies the appropriate text property to alter their syntax class."
 ;; perhaps main-indent-rule: Combine within-proof formula-indent-rule and within fact, nary_app, predicate_ref () or <>
 ;; consider ident() anchoring to min of (_start, ident_start+offset
 ;; perhaps don't combine within-proof though in order to not touch proofs
+;; TODO use treesit-node-match-p when matching types everywhere
 (defvar spthy-ts-mode--indent-settings
   `((spthy
      ((or (parent-is "^theory$")
@@ -569,11 +572,13 @@ applies the appropriate text property to alter their syntax class."
      ;; Don't interfere with proof formatting.
      (spthy-ts-mode--within-proof-p
       no-indent)
-     spthy-ts-mode--formula-indent-rule
+     ((parent-is "^quantified_formula$")
+      parent ,spthy-ts-mode-indent-offset)
      ((or (n-p-gp "\"" "^lemma$" nil)
           (n-p-gp "\"" "^restriction$" nil)
           (node-is "^trace_quantifier$"))
       column-0 ,spthy-ts-mode-indent-offset)
+     spthy-ts-mode--main-indent-rule
      ((and no-node spthy-ts-mode--lemma-quote-before-p)
       prev-line 0) ; for writing lemmas
      ((n-p-gp ")" "^nested_process$" nil)
