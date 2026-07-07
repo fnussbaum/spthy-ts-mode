@@ -551,6 +551,11 @@ applies the appropriate text property to alter their syntax class."
           (throw 'term (point)))
         (setq parent (treesit-node-parent parent))))))
 
+(defvar spthy-ts-mode--process-nodes
+  '("set_lock" "remove_lock" "input" "read_state" "delete_state"
+    "set_state" "output" "event" "process_let" "binding"
+    "conditional" "predefined_process"))
+
 ;; TODO unify indentation handling of action facts,
 ;; terms etc. in formulas, rules and processes
 ;; perhaps main-indent-rule: Combine within-proof formula-indent-rule and within fact, nary_app, predicate_ref () or <>
@@ -572,11 +577,15 @@ applies the appropriate text property to alter their syntax class."
       column-0 ,spthy-ts-mode-indent-offset)
      ((and no-node spthy-ts-mode--lemma-quote-before-p)
       prev-line 0) ; for writing lemmas
-     ((parent-is
-       ,(regexp-opt '( "set_lock" "remove_lock" "input" "read_state"
-                       "delete_state" "set_state" "output" "event"
-                       "process_let" "binding" "conditional")
-                    'symbol))
+     ((n-p-gp ")" "^nested_process$" nil)
+      parent 0)
+     ((parent-is "^nested_process$")
+      parent 1)
+     ((and (parent-is "^conditional$")
+           (or (node-is "^nested_process$")
+               (node-is ,(regexp-opt spthy-ts-mode--process-nodes 'symbol))))
+      parent ,spthy-ts-mode-indent-offset)
+     ((parent-is ,(regexp-opt spthy-ts-mode--process-nodes 'symbol))
       spthy-ts-mode--nested-or-standalone-parent 0)
      ((n-p-gp "^]->$" "^action_fact$" nil)
       parent 2)
