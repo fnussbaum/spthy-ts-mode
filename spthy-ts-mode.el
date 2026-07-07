@@ -42,6 +42,24 @@
   '(("--\\[" " ]->" t))
   "")
 
+;; Adapted from `c-ts-mode-toggle-comment-style'.
+(defun spthy-ts-mode-toggle-comment-style (&optional arg)
+  "Toggle the comment style between block and line comments.
+Optional numeric ARG, if supplied, switches to block comment
+style when positive, to line comment style when negative, and
+just toggles it when zero or omitted."
+  (interactive "P")
+  (let ((prevstate-line (string= comment-start "// ")))
+    (when (or (not arg)
+              (zerop (setq arg (prefix-numeric-value arg)))
+              (xor (> 0 arg) prevstate-line))
+      (pcase-let ((`(,starter . ,ender)
+                   (if prevstate-line
+                       (cons "/* " " */")
+                     (cons "// " ""))))
+        (setq-local comment-start starter
+                    comment-end ender)))))
+
 (defvar spthy-ts-mode--tokens
   '((general "theory" "begin" "end" "builtins" "functions" "export"
              "options" "equations" "predicates" "macros" "heuristic"
@@ -503,46 +521,6 @@
       column-0 ,spthy-ts-mode-indent-offset)
      (catch-all prev-line 0))))
 
-(defun spthy-ts-mode--defun-name (node)
-  (pcase (treesit-node-type node)
-    ((or "lemma" "diff_lemma")
-     (concat
-      (treesit-node-text (treesit-node-child-by-field-name node "lemma_identifier"))
-      (mapconcat
-       #'treesit-node-text
-       (treesit-filter-child
-        node
-        (lambda (nod)
-          (equal (treesit-node-type nod) "diff_lemma_attrs"))))))
-    ("rule"
-     (treesit-node-text (treesit-node-child-by-field-name
-                         (treesit-node-child node 0 t) "rule_identifier")))
-    ("restriction"
-     (treesit-node-text (treesit-node-child-by-field-name node "restriction_identifier")))))
-
-(defun spthy-ts-mode--treesit-non-leaf-p (node)
-  (> (treesit-node-child-count node) 0))
-
-(defvar spthy-ts-mode--imenu-settings
-  '(( "Rule" "^rule$"
-      spthy-ts-mode--treesit-non-leaf-p nil)
-    ( "Lemma" "^lemma$"
-      spthy-ts-mode--treesit-non-leaf-p nil)
-    ( "diffLemma" "^diff_lemma$"
-      spthy-ts-mode--treesit-non-leaf-p nil)
-    ( "Restriction" "^restriction$"
-      spthy-ts-mode--treesit-non-leaf-p nil)))
-
-(defun spthy-ts-mode--node-defun-p (node)
-  (and (equal (treesit-node-type (treesit-node-parent node)) "theory")
-       (not (member (treesit-node-type node)
-                    '( nil "single_comment" "multi_comment"
-                       "theory" "begin" "end" "ident")))))
-
-(defvar spthy-ts-mode--treesit-things
-  '((spthy
-     (defun spthy-ts-mode--node-defun-p))))
-
 ;; See `spthy-ts-mode--syntax-propertize' for special cases.
 (defvar spthy-ts-mode--syntax-table
   (let ((table (make-syntax-table)))
@@ -618,23 +596,57 @@ applies the appropriate text property to alter their syntax class."
                            'syntax-table
                            '(1 . ?!)))))))
 
-;; Adapted from `c-ts-mode-toggle-comment-style'.
-(defun spthy-ts-mode-toggle-comment-style (&optional arg)
-  "Toggle the comment style between block and line comments.
-Optional numeric ARG, if supplied, switches to block comment
-style when positive, to line comment style when negative, and
-just toggles it when zero or omitted."
-  (interactive "P")
-  (let ((prevstate-line (string= comment-start "// ")))
-    (when (or (not arg)
-              (zerop (setq arg (prefix-numeric-value arg)))
-              (xor (> 0 arg) prevstate-line))
-      (pcase-let ((`(,starter . ,ender)
-                   (if prevstate-line
-                       (cons "/* " " */")
-                     (cons "// " ""))))
-        (setq-local comment-start starter
-                    comment-end ender)))))
+(defun spthy-ts-mode--node-defun-p (node)
+  (and (equal (treesit-node-type (treesit-node-parent node)) "theory")
+       (not (member (treesit-node-type node)
+                    '( nil "single_comment" "multi_comment"
+                       "theory" "begin" "end" "ident")))))
+
+(defvar spthy-ts-mode--treesit-things
+  '((spthy
+     (defun spthy-ts-mode--node-defun-p))))
+
+;; TODO processes
+(defun spthy-ts-mode--defun-name (node)
+  (pcase (treesit-node-type node)
+    ((or "lemma" "diff_lemma")
+     (concat
+      (treesit-node-text (treesit-node-child-by-field-name node "lemma_identifier"))
+      (mapconcat
+       #'treesit-node-text
+       (treesit-filter-child
+        node
+        (lambda (nod)
+          (equal (treesit-node-type nod) "diff_lemma_attrs"))))))
+    ("rule"
+     (treesit-node-text (treesit-node-child-by-field-name
+                         (treesit-node-child node 0 t) "rule_identifier")))
+    ("restriction"
+     (treesit-node-text (treesit-node-child-by-field-name node "restriction_identifier")))))
+
+(defun spthy-ts-mode--treesit-non-leaf-p (node)
+  (> (treesit-node-child-count node) 0))
+
+;; TODO processes
+(defvar spthy-ts-mode--imenu-settings
+  '(( "Rule" "^rule$"
+      spthy-ts-mode--treesit-non-leaf-p nil)
+    ( "Lemma" "^lemma$"
+      spthy-ts-mode--treesit-non-leaf-p nil)
+    ( "diffLemma" "^diff_lemma$"
+      spthy-ts-mode--treesit-non-leaf-p nil)
+    ( "Restriction" "^restriction$"
+      spthy-ts-mode--treesit-non-leaf-p nil)))
+
+;; TODO processes
+(with-eval-after-load 'consult-imenu
+  (add-to-list 'consult-imenu-config
+               '(spthy-ts-mode
+                 :toplevel "Rule" :types
+                 ((?r "Rule" font-lock-variable-name-face)
+                  (?R "Restriction" font-lock-function-name-face)
+                  (?l "Lemma" font-lock-function-name-face)
+                  (?d "diffLemma" font-lock-function-name-face)))))
 
 ;;;###autoload
 (define-derived-mode spthy-ts-mode prog-mode "SPTHY-TS"
@@ -673,15 +685,6 @@ just toggles it when zero or omitted."
                   ( fact delimiter)))
 
     (treesit-major-mode-setup)))
-
-(with-eval-after-load 'consult-imenu
-  (add-to-list 'consult-imenu-config
-               '(spthy-ts-mode
-                 :toplevel "Rule" :types
-                 ((?r "Rule" font-lock-variable-name-face)
-                  (?R "Restriction" font-lock-function-name-face)
-                  (?l "Lemma" font-lock-function-name-face)
-                  (?d "diffLemma" font-lock-function-name-face)))))
 
 ;;;###autoload
 (with-eval-after-load 'treesit
