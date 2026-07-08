@@ -566,6 +566,8 @@ applies the appropriate text property to alter their syntax class."
 ;; TODO use treesit-node-match-p when matching types everywhere
 (defvar spthy-ts-mode--indent-settings
   `((spthy
+     ((and no-node (spthy-ts-mode--prev-node-is ":" nil t))
+      column-0 ,spthy-ts-mode-indent-offset)
      ((or (parent-is "^theory$")
           (parent-is "^tactic$"))
       column-0 0)
@@ -639,8 +641,6 @@ applies the appropriate text property to alter their syntax class."
           ;;   ]->
           spthy-ts-mode--closing-rule-delimiter-p)
       spthy-ts-mode--prev-matching-bracket-start 0)
-     ((and no-node (spthy-ts-mode--prev-node-is ":"))
-      column-0 ,spthy-ts-mode-indent-offset)
      ((and no-node (or (parent-is "^premise$")
                        (parent-is "^conclusion$")))
       parent 0)
