@@ -462,31 +462,6 @@ applies the appropriate text property to alter their syntax class."
      node
      #'proof-node-p 'include-node)))
 
-(defun spthy-ts-mode--matching-bracket-next-sibling (node parent &rest _)
-  (let* ((siblings
-          (cl-member-if
-           (lambda (nod)
-             (or
-              (treesit-node-eq
-               nod
-               (spthy-ts-mode--prev-matching-bracket-node node))
-              (treesit-node-eq
-               nod
-               (spthy-ts-mode--prev-matching-bracket-node
-                (spthy-ts-mode--largest-node-at
-                 (treesit-node-start node))))))
-           (treesit-node-children parent))))
-    (treesit-node-start
-     (nth 1 siblings))))
-
-(defun spthy-ts-mode--first-sibling-start (node parent &rest _)
-  ;; We consider named siblings and "!" nodes.
-  (treesit-node-start
-   (car (cl-member-if (lambda (nod)
-                        (or (treesit-node-named nod)
-                            (equal (treesit-node-type nod) "!")))
-                      (treesit-node-children parent)))))
-
 (defun spthy-ts-mode--non-comment-node-p (node)
   (not (member (treesit-node-type node) '("single_comment" "multi_comment"))))
 
@@ -518,27 +493,6 @@ applies the appropriate text property to alter their syntax class."
             (treesit-node-type
              (treesit-node-parent node))))))))
 
-(defun spthy-ts-mode--first-sibling-comma-or-bracket
-    (node parent bol &rest _)
-  (if-let* ((node (treesit-node-at bol))
-            (_ (member (treesit-node-type node)
-                       '(")" "]" ">" "]->"))))
-      (spthy-ts-mode--matching-bracket-next-sibling node parent nil)
-    (let ((comma-node
-           (spthy-ts-mode--largest-node-at
-            (treesit-node-start
-             (spthy-ts-mode--prev-non-comment-node bol)))))
-      ;; TODO perhaps last sibling would be less of a headache??
-      ;; Handle edge case:
-      ;; rule Test:
-      ;;   []
-      ;; --[ Hello(),
-      ;;     World(), // <- parent is ERROR containing whole rule
-      ;;     ]->      //    (World would anchor to rule identifier Test above)
-      ;;   []
-      (spthy-ts-mode--first-sibling-start
-       comma-node (treesit-node-parent comma-node) nil))))
-
 (defun spthy-ts-mode--lemma-quote-before-p
     (_node parent &rest _)
   (when-let*
@@ -567,6 +521,29 @@ applies the appropriate text property to alter their syntax class."
           (throw 'term (point)))
         (setq parent (treesit-node-parent parent))))))
 
+;; (defun spthy-ts-mode--first-sibling-start (node parent &rest _)
+;;   ;; We consider named siblings and "!" nodes.
+;;   (treesit-node-start
+;;    (car (cl-member-if (lambda (nod)
+;;                         (or (treesit-node-named nod)
+;;                             (equal (treesit-node-type nod) "!")))
+;;                       (treesit-node-children parent)))))
+
+(defun spthy-ts-mode--prev-sibling-line-first-sibling (node parent bol &rest _)
+  (let* ((prev-sibling-start
+          (funcall (alist-get 'prev-sibling treesit-simple-indent-presets)
+                   node parent bol))
+         (prev-sibling-bol
+          (save-excursion
+            (goto-char prev-sibling-start)
+            (pos-bol)))
+         (nod (spthy-ts-mode--largest-node-at prev-sibling-start)))
+    (while (and (treesit-node-prev-sibling nod t)
+                (>= (treesit-node-start (treesit-node-prev-sibling nod t))
+                    prev-sibling-bol))
+      (setq nod (treesit-node-prev-sibling nod t)))
+    (treesit-node-start nod)))
+
 (defvar spthy-ts-mode--process-nodes
   '("set_lock" "remove_lock" "input" "read_state" "delete_state"
     "set_state" "output" "event" "process_let" "binding"
@@ -586,6 +563,7 @@ applies the appropriate text property to alter their syntax class."
 ;; TODO embedded restrictions, case_test, accountability lemma, equivLemma, diffEquivLemma?
 (defvar spthy-ts-mode--indent-settings
   `((spthy
+     ;; TODO check for false positives (and/or move down again?)
      ((and no-node (spthy-ts-mode--prev-node-is ":" nil t))
       column-0 ,spthy-ts-mode-indent-offset)
      ((or (parent-is "^theory$")
@@ -621,7 +599,7 @@ applies the appropriate text property to alter their syntax class."
       parent 0)
      ;; TODO try within lemma
      ((spthy-ts-mode--prev-node-is "^,$" nil t)
-      spthy-ts-mode--first-sibling-comma-or-bracket 0)
+      spthy-ts-mode--prev-sibling-line-first-sibling 0)
      ((or (node-is "^action_fact$")
           ;; Handle incomplete rules.
           (spthy-ts-mode--prev-node-is "^\\]$" "^premise$"))
@@ -655,7 +633,7 @@ applies the appropriate text property to alter their syntax class."
      ;; TODO will probably be covered by main-indent-rule
      ((or (query ([(premise) (action_fact) (conclusion)] (_) @foo))
           (query ([(premise) (action_fact) (conclusion)] "!" @foo)))
-      spthy-ts-mode--first-sibling-start 0)
+      spthy-ts-mode--prev-sibling-line-first-sibling 0)
      ((or (node-is ")") (node-is "]") (node-is ">")
           ;; Handle the case of comma and empty line:
           ;; --[ A(x),
