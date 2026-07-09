@@ -165,7 +165,8 @@ applies the appropriate text property to alter their syntax class."
                "event" "as" "if" "then" "else")
     (brackets "(" ")" "<" ">")
     (rule-delimiters "--[" "]->" "[" "]" "-->")
-    (logical-operators "&" "|" "==>" "<=>")
+    ;; The "not" operator is highlighted like a keyword.
+    (logical-operators "&" "∧" "|" "∨" "==>" "⇒" "<=>" "⇔" "¬")
     (delimiters "," ":" "@"))
    "Tamarin spthy tokens for tree-sitter font-locking.")
 
