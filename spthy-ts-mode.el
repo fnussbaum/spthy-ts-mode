@@ -665,7 +665,6 @@ applies the appropriate text property to alter their syntax class."
 
 ;;; Imenu
 
-;; TODO processes
 (defun spthy-ts-mode--defun-name (node)
   (pcase (treesit-node-type node)
     ((or "lemma" "diff_lemma" "restriction")
@@ -682,28 +681,34 @@ applies the appropriate text property to alter their syntax class."
                   '("diff_lemma_attrs" "restriction_attr")))))))
     ("rule"
      (treesit-node-text (treesit-node-child-by-field-name
-                         (treesit-node-child node 0 t) "rule_identifier")))))
+                         (treesit-node-child node 0 t) "rule_identifier")))
+    ("process" "process:")
+    ("let"
+     (treesit-node-text (treesit-node-child-by-field-name
+                         node "let_identifier")))))
 
 (defun spthy-ts-mode--treesit-non-leaf-p (node)
   (> (treesit-node-child-count node) 0))
 
-;; TODO processes
 (defvar spthy-ts-mode--imenu-settings
-  '(( "Rule" "^rule$"
+  `(( "Process" ,(spthy-ts-mode--regexp-opt-line
+                  '("process" "let"))
+      spthy-ts-mode--treesit-non-leaf-p nil)
+    ( "Rule" "^rule$"
+      spthy-ts-mode--treesit-non-leaf-p nil)
+    ( "Restriction" "^restriction$"
       spthy-ts-mode--treesit-non-leaf-p nil)
     ( "Lemma" "^lemma$"
       spthy-ts-mode--treesit-non-leaf-p nil)
     ( "diffLemma" "^diff_lemma$"
-      spthy-ts-mode--treesit-non-leaf-p nil)
-    ( "Restriction" "^restriction$"
       spthy-ts-mode--treesit-non-leaf-p nil)))
 
-;; TODO processes
 (with-eval-after-load 'consult-imenu
   (add-to-list 'consult-imenu-config
                '(spthy-ts-mode
                  :toplevel "Rule" :types
-                 ((?r "Rule" font-lock-variable-name-face)
+                 ((?p "Process" font-lock-variable-name-face)
+                  (?r "Rule" font-lock-variable-name-face)
                   (?R "Restriction" font-lock-function-name-face)
                   (?l "Lemma" font-lock-function-name-face)
                   (?d "diffLemma" font-lock-function-name-face)))))
