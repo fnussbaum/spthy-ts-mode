@@ -381,9 +381,9 @@ applies the appropriate text property to alter their syntax class."
              (save-excursion
                (goto-char bol)
                (or (looking-at-p
-                    (concat "[[:blank:]]*" (regexp-quote "]->")))
+                    (concat "[[:blank:]]*" "]->"))
                    (looking-at-p
-                    (concat "[[:blank:]]*" (regexp-quote "]")))))))))
+                    (concat "[[:blank:]]*" "]"))))))))
 
 (defun spthy-ts-mode--prev-matching-bracket-node (node)
   (let* ((type (treesit-node-type node))
@@ -396,13 +396,13 @@ applies the appropriate text property to alter their syntax class."
               ((or
                 "]->"
                 (guard (looking-at-p
-                        (concat "[[:blank:]]*" (regexp-quote "]->")))))
+                        (concat "[[:blank:]]*" "]->"))))
                "--[")
               ((or
                 "]"
                 (and "ERROR"
                      (guard (looking-at-p
-                             (concat "[[:blank:]]*" (regexp-quote "]"))))))
+                             (concat "[[:blank:]]*" "]")))))
                "[")))))
     (while (and node (not (equal (treesit-node-type node) matching-bracket)))
       (setq node (treesit-node-prev-sibling node)))
@@ -551,7 +551,6 @@ applies the appropriate text property to alter their syntax class."
   (concat "^" (regexp-opt strings) "$"))
 
 ;; TODO use treesit-node-match-p when matching types everywhere
-;; TODO clean up regexes everywhere
 ;; TODO indent "predicates: ..."
 ;; TODO embedded restrictions, case_test, accountability lemma, equivLemma, diffEquivLemma?
 (defvar spthy-ts-mode--indent-settings
@@ -613,8 +612,8 @@ applies the appropriate text property to alter their syntax class."
       column-0 ,spthy-ts-mode-indent-offset)
      spthy-ts-mode--incomplete-let-indent-rule
      ;; Handle first fact within rule premises and conclusions.
-     ((match nil ,(regexp-opt
-                   '( "premise" "conclusion"))
+     ((match nil ,(spthy-ts-mode--regexp-opt-line
+                   '("premise" "conclusion"))
              nil 1 1)
       parent 2)
      ;; Handle first action fact.
@@ -622,7 +621,7 @@ applies the appropriate text property to alter their syntax class."
              nil 1 1)
       parent 4)
      ;; Handle incomplete rules.
-     ((spthy-ts-mode--prev-node-is ,(rx (or "[" "--[")))
+     ((spthy-ts-mode--prev-node-is ,(spthy-ts-mode--regexp-opt-line '("[" "--[")))
       spthy-ts-mode--end-of-prev-node 1)
      ((or (n-p-gp nil nil "^theory$")
           (parent-is "^simple_rule$")
