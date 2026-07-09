@@ -143,7 +143,8 @@ applies the appropriate text property to alter their syntax class."
              "options" "equations" "predicates" "macros" "heuristic"
              "tactic" "rule" "variants" "axiom" "restriction" "process"
              "lemma" "diffLemma" "all-traces" "exists-trace" "All" "Ex"
-             "let" (rule_let_block "in") "fresh" "not")
+             (let ("let")) (rule_let_block "let") (rule_let_block "in")
+             "fresh" "not")
     (proof "next" "case" "by" "ATTACK" ((solved)) ((mirrored)) "qed"
            "contradiction" "backward-search" "simplify"
            "induction" "rule-equivalence")
@@ -152,7 +153,8 @@ applies the appropriate text property to alter their syntax class."
                      "defaultNoise" "reasonableNoncesNoise" "nonAbsurdConstraint")
     (preprocessor "#ifdef" "#else" "#endif" "#define" "#include")
     (quiet "modulo" "$" "~")
-    (processes "out" (process_let "in") (input "in") (read_state "in")
+    (processes "out" (process_let "let") (process_let "in")
+               (input "in") (read_state "in")
                "new" "lookup" "lock" "unlock" "delete" "insert"
                "event" "as" "if" "then" "else")
     (brackets "(" ")" "<" ">")
@@ -521,14 +523,6 @@ applies the appropriate text property to alter their syntax class."
           (throw 'term (point)))
         (setq parent (treesit-node-parent parent))))))
 
-;; (defun spthy-ts-mode--first-sibling-start (node parent &rest _)
-;;   ;; We consider named siblings and "!" nodes.
-;;   (treesit-node-start
-;;    (car (cl-member-if (lambda (nod)
-;;                         (or (treesit-node-named nod)
-;;                             (equal (treesit-node-type nod) "!")))
-;;                       (treesit-node-children parent)))))
-
 (defun spthy-ts-mode--prev-sibling-line-first-sibling (node parent bol &rest _)
   (let* ((prev-sibling-start
           (funcall (alist-get 'prev-sibling treesit-simple-indent-presets)
@@ -538,10 +532,11 @@ applies the appropriate text property to alter their syntax class."
             (goto-char prev-sibling-start)
             (pos-bol)))
          (nod (spthy-ts-mode--largest-node-at prev-sibling-start)))
-    (while (and (treesit-node-prev-sibling nod t)
-                (>= (treesit-node-start (treesit-node-prev-sibling nod t))
-                    prev-sibling-bol))
-      (setq nod (treesit-node-prev-sibling nod t)))
+    (while
+        (and-let* ((prev-sibling (treesit-node-prev-sibling nod t))
+                   ((>= (treesit-node-start prev-sibling)
+                        prev-sibling-bol)))
+          (setq nod prev-sibling)))
     (treesit-node-start nod)))
 
 (defvar spthy-ts-mode--process-nodes
