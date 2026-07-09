@@ -209,7 +209,8 @@ applies the appropriate text property to alter their syntax class."
               collect (treesit-node-type (treesit-node-child node 0))))
           last-value)))))
 
-(defun spthy-ts-mode--add-face-builtin-function (node _override start end &rest _)
+(defun spthy-ts-mode--add-face-builtin-function
+    (node _override start end &rest _)
   (when (cl-intersection
          (cl-loop for (theory . idents) in spthy-ts-mode--builtin-functions
                   when (member (treesit-node-text node) idents)
@@ -220,6 +221,14 @@ applies the appropriate text property to alter their syntax class."
      (max (treesit-node-start node) start)
      (min (treesit-node-end node) end)
      'font-lock-builtin-face)))
+
+(defun spthy-ts-mode--add-face-process-identifier
+    (node _override start end &rest _)
+  (let ((ident (treesit-node-at (treesit-node-start node))))
+    (add-face-text-property
+     (max (treesit-node-start ident) start)
+     (min (treesit-node-end ident) end)
+     'font-lock-variable-name-face)))
 
 (defvar spthy-ts-mode--builtin-facts
   '("In" "Out" "Fr"))
@@ -284,12 +293,12 @@ applies the appropriate text property to alter their syntax class."
      :language spthy
      :feature quiet
      (([,@(spthy-ts-mode--tokens-add-face 'general '@font-lock-quiet-face)])
-      ((pub_var ["pub" ":"] @font-lock-comment-face))
-      ((fresh_var ["fresh" ":"] @font-lock-comment-face))
-      ((msg_var_or_nullary_fun ["msg" ":"] @font-lock-comment-face))
-      ((temporal_var ["node" ":"] @font-lock-comment-face))
-      ((nat_var ["nat" ":"] @font-lock-comment-face))
-      ((any_var ["ANY" ":"] @font-lock-comment-face)))
+      (pub_var ["pub" ":"] @font-lock-comment-face)
+      (fresh_var ["fresh" ":"] @font-lock-comment-face)
+      (msg_var_or_nullary_fun ["msg" ":"] @font-lock-comment-face)
+      (temporal_var ["node" ":"] @font-lock-comment-face)
+      (nat_var ["nat" ":"] @font-lock-comment-face)
+      (any_var ["ANY" ":"] @font-lock-comment-face))
 
      :language spthy
      :feature keyword
@@ -297,9 +306,13 @@ applies the appropriate text property to alter their syntax class."
            'general '@font-lock-keyword-face)])
       ([,@(spthy-ts-mode--tokens-add-face
            'preprocessor '@font-lock-preprocessor-face)])
-      ([,@(spthy-ts-mode--tokens-add-face
-           'processes '@font-lock-keyword-face)])
       ((atom) @font-lock-keyword-face))
+
+     :language spthy
+     :feature process
+     (([,@(spthy-ts-mode--tokens-add-face
+           'processes '@font-lock-keyword-face)])
+      (predefined_process (mset_term) @spthy-ts-mode--add-face-process-identifier))
 
      :language spthy
      :feature definition
@@ -307,7 +320,8 @@ applies the appropriate text property to alter their syntax class."
       (restriction restriction_identifier: (ident) @font-lock-function-name-face)
       (lemma lemma_identifier: (ident) @font-lock-function-name-face)
       (diff_lemma lemma_identifier: (ident) @font-lock-function-name-face)
-      (tactic (ident) @font-lock-function-name-face))
+      (tactic (ident) @font-lock-function-name-face)
+      (let let_identifier: (mset_term) @spthy-ts-mode--add-face-process-identifier))
 
      :language spthy
      :feature fact
@@ -748,7 +762,8 @@ applies the appropriate text property to alter their syntax class."
     (setq-local treesit-font-lock-feature-list
                 '(( comment)
                   ( constant quiet)
-                  ( keyword tactic proof definition action-fact builtin operator)
+                  ( keyword tactic proof definition
+                    action-fact builtin process operator)
                   ( fact delimiter)))
 
     (treesit-major-mode-setup)
