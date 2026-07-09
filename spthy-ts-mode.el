@@ -566,6 +566,8 @@ applies the appropriate text property to alter their syntax class."
      ;; TODO check for false positives (and/or move down again?)
      ((and no-node (spthy-ts-mode--prev-node-is ":" nil t))
       column-0 ,spthy-ts-mode-indent-offset)
+     ((node-is "^macro$")
+      parent ,spthy-ts-mode-indent-offset)
      ((or (parent-is "^theory$")
           (parent-is "^tactic$"))
       column-0 0)
