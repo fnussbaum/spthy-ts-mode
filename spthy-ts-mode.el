@@ -39,8 +39,14 @@
   :group 'spthy)
 
 (defcustom spthy-ts-mode-electric-pair-pairs
-  '(("--\\[" " ]->" t))
-  "")
+  '(("--\\[" "]->"))
+  ""
+  :type '(repeat
+          (choice (cons :tag "Characters" character character)
+                  (cons :tag "Strings" string string)
+                  (list :tag "Strings, plus insert SPC after first string"
+                        string string boolean)))
+  :group 'spthy)
 
 ;; Adapted from `c-ts-mode-toggle-comment-style'.
 (defun spthy-ts-mode-toggle-comment-style (&optional arg)
