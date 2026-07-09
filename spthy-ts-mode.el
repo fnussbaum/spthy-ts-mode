@@ -530,14 +530,19 @@ applies the appropriate text property to alter their syntax class."
         (setq parent (treesit-node-parent parent))))))
 
 (defun spthy-ts-mode--prev-sibling-line-first-sibling (node parent bol &rest _)
-  (let* ((prev-sibling-start
-          (funcall (alist-get 'prev-sibling treesit-simple-indent-presets)
-                   node parent bol))
+  (let* ((prev-sibling
+          ;; From `prev-sibling' in `treesit-simple-indent-presets'.
+          (or (treesit-node-prev-sibling node t)
+              (treesit-node-prev-sibling
+               (treesit-node-first-child-for-pos
+                parent bol)
+               t)
+              (treesit-node-child parent -1 t)))
          (prev-sibling-bol
           (save-excursion
-            (goto-char prev-sibling-start)
+            (goto-char (treesit-node-start prev-sibling))
             (pos-bol)))
-         (nod (spthy-ts-mode--largest-node-at prev-sibling-start)))
+         (nod prev-sibling))
     (while
         (and-let* ((prev-sibling (treesit-node-prev-sibling nod t))
                    ((>= (treesit-node-start prev-sibling)
@@ -564,6 +569,9 @@ applies the appropriate text property to alter their syntax class."
 ;; TODO embedded restrictions, case_test, accountability lemma, equivLemma, diffEquivLemma?
 (defvar spthy-ts-mode--indent-settings
   `((spthy
+     ;; Don't interfere with proof formatting.
+     (spthy-ts-mode--within-proof-p
+      no-indent)
      ;; TODO check for false positives (and/or move down again?)
      ((and no-node (spthy-ts-mode--prev-node-is ":" nil t))
       column-0 ,spthy-ts-mode-indent-offset)
@@ -572,10 +580,8 @@ applies the appropriate text property to alter their syntax class."
      ((or (parent-is "^theory$")
           (parent-is "^tactic$"))
       column-0 0)
-     ;; Don't interfere with proof formatting.
-     (spthy-ts-mode--within-proof-p
-      no-indent)
-     ((parent-is "^quantified_formula$")
+     ((or (parent-is "^quantified_formula$")
+          (node-is "^arguments$"))
       parent ,spthy-ts-mode-indent-offset)
      ((or (n-p-gp "\"" "^lemma$" nil)
           (n-p-gp "\"" "^restriction$" nil)
