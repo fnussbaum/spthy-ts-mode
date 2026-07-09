@@ -757,6 +757,12 @@ applies the appropriate text property to alter their syntax class."
 
 ;;;###autoload
 (with-eval-after-load 'treesit
+  (add-to-list
+   'treesit-language-source-alist
+   '(spthy "https://github.com/fnussbaum/tamarin-prover"
+           :source-dir "tree-sitter/tree-sitter-spthy/src"
+           :commit "6e0cc1c7f82b277f5ccfc6b735cdf101d36f62e8")
+   t)
   (when (treesit-ready-p 'spthy)
     (add-to-list 'auto-mode-alist '("\\.spthy\\'" . spthy-ts-mode))))
 
