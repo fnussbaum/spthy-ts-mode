@@ -271,8 +271,7 @@ applies the appropriate text property to alter their syntax class."
 
      :language spthy
      :feature constant
-     (((pub_name) @font-lock-string-face)
-      ((atom) @font-lock-constant-face))
+     (((pub_name) @font-lock-string-face))
 
      :language spthy
      :feature operator
@@ -299,7 +298,8 @@ applies the appropriate text property to alter their syntax class."
       ([,@(spthy-ts-mode--tokens-add-face
            'preprocessor '@font-lock-preprocessor-face)])
       ([,@(spthy-ts-mode--tokens-add-face
-           'processes '@font-lock-keyword-face)]))
+           'processes '@font-lock-keyword-face)])
+      ((atom) @font-lock-keyword-face))
 
      :language spthy
      :feature definition
