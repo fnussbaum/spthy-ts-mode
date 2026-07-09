@@ -668,20 +668,21 @@ applies the appropriate text property to alter their syntax class."
 ;; TODO processes
 (defun spthy-ts-mode--defun-name (node)
   (pcase (treesit-node-type node)
-    ((or "lemma" "diff_lemma")
+    ((or "lemma" "diff_lemma" "restriction")
      (concat
-      (treesit-node-text (treesit-node-child-by-field-name node "lemma_identifier"))
+      (treesit-node-text
+       (or (treesit-node-child-by-field-name node "lemma_identifier")
+           (treesit-node-child-by-field-name node "restriction_identifier")))
       (mapconcat
        #'treesit-node-text
        (treesit-filter-child
         node
         (lambda (nod)
-          (equal (treesit-node-type nod) "diff_lemma_attrs"))))))
+          (member (treesit-node-type nod)
+                  '("diff_lemma_attrs" "restriction_attr")))))))
     ("rule"
      (treesit-node-text (treesit-node-child-by-field-name
-                         (treesit-node-child node 0 t) "rule_identifier")))
-    ("restriction"
-     (treesit-node-text (treesit-node-child-by-field-name node "restriction_identifier")))))
+                         (treesit-node-child node 0 t) "rule_identifier")))))
 
 (defun spthy-ts-mode--treesit-non-leaf-p (node)
   (> (treesit-node-child-count node) 0))
