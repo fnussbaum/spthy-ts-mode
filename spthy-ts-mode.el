@@ -413,45 +413,36 @@ applies the appropriate text property to alter their syntax class."
       (spthy-ts-mode--prev-matching-bracket-node node))
      1))
 
-(defun spthy-ts-mode--formula-indent-rule (node parent &rest _)
-  (cl-flet* ((above-parent-line-p (nod)
-               (< (treesit-node-start nod)
-                  (save-excursion
-                    (goto-char (treesit-node-start parent))
-                    (pos-bol))))
-             (parent-quantifier-prev-line (nod)
-               (let ((nod-parent (treesit-node-parent nod)))
-                 (or (equal (treesit-node-type nod-parent) "quantified_formula")
-                     (above-parent-line-p nod-parent)))))
-    (let* ((maybe-quantifier-child
-            (treesit-parent-until parent #'parent-quantifier-prev-line
-                                  'include-node))
-           (maybe-quantifier
-            (treesit-node-parent maybe-quantifier-child)))
-      (if (or (not (or (member (treesit-node-type node) '("&" "|" "==>"))
-                       (member (treesit-node-type parent)
-                               '("conjunction" "disjunction" "imp"))))
-              (above-parent-line-p maybe-quantifier))
-          `(,(treesit-node-start parent) . 0)
-        `(,(treesit-node-start maybe-quantifier) .
-          ,(+ spthy-ts-mode-indent-offset
-              (- (treesit-node-start parent)
-                 (treesit-node-start
-                  maybe-quantifier-child))))))))
-
-(defun spthy-ts-mode--main-indent-rule (node parent &rest _)
-  (cl-loop for nod = parent then (treesit-node-parent nod)
-           while nod
-           thereis
-           (cond
-            ((or (member (treesit-node-type nod)
-                         '("nested_formula" "conjunction"
-                           "disjunction" "iff" "imp"))
-                 (member (treesit-node-field-name nod)
-                         '("formula")))
-             (spthy-ts-mode--formula-indent-rule node parent))
-            ;; ((member (treesit-node-type nod)))
-            )))
+(defun spthy-ts-mode--logical-operator-indent-rule (node parent &rest _)
+  (when (or (treesit-node-match-p
+             node
+             (spthy-ts-mode--regexp-opt-line
+              '("&" "∧" "|" "∨" "==>" "⇒" "<=>" "⇔" "not" "¬")))
+            (treesit-node-match-p
+             parent
+             (spthy-ts-mode--regexp-opt-line
+              '("conjunction" "disjunction" "imp" "iff" "negation"))))
+    (cl-flet* ((above-parent-line-p (nod)
+                 (< (treesit-node-start nod)
+                    (save-excursion
+                      (goto-char (treesit-node-start parent))
+                      (pos-bol))))
+               (parent-quantifier-prev-line (nod)
+                 (let ((nod-parent (treesit-node-parent nod)))
+                   (or (equal (treesit-node-type nod-parent) "quantified_formula")
+                       (above-parent-line-p nod-parent)))))
+      (let* ((maybe-quantifier-child
+              (treesit-parent-until parent #'parent-quantifier-prev-line
+                                    'include-node))
+             (maybe-quantifier
+              (treesit-node-parent maybe-quantifier-child)))
+        (if (above-parent-line-p maybe-quantifier)
+            `(,(treesit-node-start parent) . 0)
+          `(,(treesit-node-start maybe-quantifier) .
+            ,(+ spthy-ts-mode-indent-offset
+                (- (treesit-node-start parent)
+                   (treesit-node-start
+                    maybe-quantifier-child)))))))))
 
 (defun spthy-ts-mode--incomplete-let-indent-rule (_node _parent bol &rest _)
   (when-let* ((node (spthy-ts-mode--prev-non-comment-node bol))
@@ -558,11 +549,6 @@ applies the appropriate text property to alter their syntax class."
 (defun spthy-ts-mode--regexp-opt-line (strings)
   (concat "^" (regexp-opt strings) "$"))
 
-;; TODO unify indentation handling of action facts,
-;; terms etc. in formulas, rules and processes
-;; perhaps main-indent-rule: Combine within-proof formula-indent-rule and within fact, nary_app, predicate_ref () or <>
-;; consider ident() anchoring to min of (_start, ident_start+offset
-;; perhaps don't combine within-proof though in order to not touch proofs
 ;; TODO use treesit-node-match-p when matching types everywhere
 ;; TODO clean up regexes everywhere
 ;; TODO indent "predicates: ..."
@@ -572,14 +558,18 @@ applies the appropriate text property to alter their syntax class."
      ;; Don't interfere with proof formatting.
      (spthy-ts-mode--within-proof-p
       no-indent)
-     ;; TODO check for false positives (and/or move down again?)
      ((and no-node (spthy-ts-mode--prev-node-is ":" nil t))
-      column-0 ,spthy-ts-mode-indent-offset)
+      parent ,spthy-ts-mode-indent-offset)
      ((node-is "^macro$")
       parent ,spthy-ts-mode-indent-offset)
      ((or (parent-is "^theory$")
           (parent-is "^tactic$"))
       column-0 0)
+     ((spthy-ts-mode--prev-node-is "^,$" nil t)
+      spthy-ts-mode--prev-sibling-line-first-sibling 0)
+     ((and (parent-is "^quantified_formula$")
+           (field-is "^variable$"))
+      (nth-sibling 1) 0)
      ((or (parent-is "^quantified_formula$")
           (node-is "^arguments$"))
       parent ,spthy-ts-mode-indent-offset)
@@ -587,7 +577,7 @@ applies the appropriate text property to alter their syntax class."
           (n-p-gp "\"" "^restriction$" nil)
           (node-is "^trace_quantifier$"))
       column-0 ,spthy-ts-mode-indent-offset)
-     spthy-ts-mode--main-indent-rule
+     spthy-ts-mode--logical-operator-indent-rule
      ((and no-node spthy-ts-mode--lemma-quote-before-p)
       prev-line 0) ; for writing lemmas
      ((n-p-gp ")" "^nested_process$" nil)
@@ -602,13 +592,14 @@ applies the appropriate text property to alter their syntax class."
      ((parent-is ,(spthy-ts-mode--regexp-opt-line
                    spthy-ts-mode--process-nodes))
       spthy-ts-mode--nested-or-standalone-parent 0)
+     ((n-p-gp "^]$"
+              ,(spthy-ts-mode--regexp-opt-line
+                '("premise" "conclusion")) nil)
+      parent 0)
      ((n-p-gp "^]->$" "^action_fact$" nil)
       parent 2)
      ((n-p-gp "^in$" "^rule_let_block$" nil)
       parent 0)
-     ;; TODO try within lemma
-     ((spthy-ts-mode--prev-node-is "^,$" nil t)
-      spthy-ts-mode--prev-sibling-line-first-sibling 0)
      ((or (node-is "^action_fact$")
           ;; Handle incomplete rules.
           (spthy-ts-mode--prev-node-is "^\\]$" "^premise$"))
@@ -639,10 +630,9 @@ applies the appropriate text property to alter their syntax class."
       first-sibling ,spthy-ts-mode-indent-offset)
      ((n-p-gp "^,$" "^action_fact$" nil)
       parent 2)
-     ;; TODO will probably be covered by main-indent-rule
-     ((or (query ([(premise) (action_fact) (conclusion)] (_) @foo))
-          (query ([(premise) (action_fact) (conclusion)] "!" @foo)))
-      spthy-ts-mode--prev-sibling-line-first-sibling 0)
+     ;; ((or (query ([(premise) (action_fact) (conclusion)] (_) @foo))
+     ;;      (query ([(premise) (action_fact) (conclusion)] "!" @foo)))
+     ;;  spthy-ts-mode--prev-sibling-line-first-sibling 0)
      ((or (node-is ")") (node-is "]") (node-is ">")
           ;; Handle the case of comma and empty line:
           ;; --[ A(x),
