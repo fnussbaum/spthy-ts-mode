@@ -493,7 +493,6 @@ applies the appropriate text property to alter their syntax class."
       (and
        (not (and prev-line
                  ;; Return nil when previous line is empty.
-                 ;; TODO does this modify mark?
                  (save-excursion
                    (goto-char bol)
                    (forward-line -1)
@@ -564,7 +563,6 @@ applies the appropriate text property to alter their syntax class."
 (defun spthy-ts-mode--regexp-opt-line (strings)
   (concat "^" (regexp-opt strings) "$"))
 
-;; TODO use treesit-node-match-p when matching types everywhere
 ;; TODO indent "predicates: ..."
 ;; TODO embedded restrictions, case_test, accountability lemma, equivLemma, diffEquivLemma?
 (defvar spthy-ts-mode--indent-settings
@@ -758,7 +756,6 @@ applies the appropriate text property to alter their syntax class."
                    spthy-ts-mode-electric-pair-pairs
                    electric-pair-pairs)))
 
-    ;; TODO configuration example with `treesit-font-lock-recompute-features'.
     (setq-local treesit-font-lock-feature-list
                 '(( comment)
                   ( constant quiet)
