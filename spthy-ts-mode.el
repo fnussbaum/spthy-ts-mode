@@ -163,7 +163,8 @@ applies the appropriate text property to alter their syntax class."
     (brackets "(" ")" "<" ">")
     (rule-delimiters "--[" "]->" "[" "]" "-->")
     ;; The "not" operator is highlighted like a keyword.
-    (logical-operators "&" "∧" "|" "∨" "==>" "⇒" "<=>" "⇔" "¬")
+    (operators "&" "∧" "|" "∨" "==>" "⇒" "<=>" "⇔" "¬"
+               "||" (replication "!") (non_deterministic_choice "+"))
     (delimiters "," ":" "@"))
    "Tamarin spthy tokens for tree-sitter font-locking.")
 
@@ -282,7 +283,7 @@ applies the appropriate text property to alter their syntax class."
      :language spthy
      :feature operator
      (([,@(spthy-ts-mode--tokens-add-face
-           'logical-operators '@font-lock-operator-face)])
+           'operators '@font-lock-operator-face)])
       ([,@(spthy-ts-mode--tokens-add-face
            'rule-delimiters '@font-lock-delimiter-face)]))
 
