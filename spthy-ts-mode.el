@@ -38,15 +38,11 @@
   :safe 'integerp
   :group 'spthy)
 
-(defcustom spthy-ts-mode-electric-pair-pairs
-  '(("--\\[" "]->"))
-  ""
-  :type '(repeat
-          (choice (cons :tag "Characters" character character)
-                  (cons :tag "Strings" string string)
-                  (list :tag "Strings, plus insert SPC after first string"
-                        string string boolean)))
-  :group 'spthy)
+(defcustom spthy-ts-auto-close-action-fact t
+  "If non-nil, inserting \"--[\" will insert its respective \"]->\".
+Note that this only takes effect when `electric-indent-mode' or
+`electric-indent-local-mode' are active."
+  :type 'boolean)
 
 ;; Adapted from `c-ts-mode-toggle-comment-style'.
 (defun spthy-ts-mode-toggle-comment-style (&optional arg)
@@ -768,10 +764,11 @@ applies the appropriate text property to alter their syntax class."
     (setq-local comment-start "// ")
     (setq-local comment-end "")
 
-    (when (boundp 'electric-pair-pairs)
+    (when (and spthy-ts-auto-close-action-fact
+               (boundp 'electric-pair-pairs))
       (setq-local electric-pair-pairs
-                  (append
-                   spthy-ts-mode-electric-pair-pairs
+                  (cons
+                   '(("--\\[" . "]->"))
                    electric-pair-pairs)))
 
     (setq-local treesit-font-lock-feature-list
