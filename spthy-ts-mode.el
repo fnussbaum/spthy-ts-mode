@@ -150,7 +150,8 @@ applies the appropriate text property to alter their syntax class."
              "tactic" "rule" "variants" "axiom" "restriction" "process"
              "lemma" "diffLemma" "all-traces" "exists-trace" "All" "Ex"
              (let ("let")) (rule_let_block "let") (rule_let_block "in")
-             "fresh" "not")
+             "fresh" "not" "test" "accounts" "account" "for"
+             "equivLemma" "diffEquivLemma")
     (proof "next" "case" "by" "ATTACK" ((solved)) ((mirrored)) "qed"
            "contradiction" "backward-search" "simplify"
            "induction" "rule-equivalence")
@@ -320,6 +321,8 @@ applies the appropriate text property to alter their syntax class."
       (restriction restriction_identifier: (ident) @font-lock-function-name-face)
       (lemma lemma_identifier: (ident) @font-lock-function-name-face)
       (diff_lemma lemma_identifier: (ident) @font-lock-function-name-face)
+      (case_test test_identifier: (ident) @font-lock-variable-name-face)
+      (accountability_lemma lemma_identifier: (ident) @font-lock-function-name-face)
       (tactic (ident) @font-lock-function-name-face)
       (let let_identifier: (mset_term) @spthy-ts-mode--add-face-process-identifier))
 
@@ -506,11 +509,14 @@ applies the appropriate text property to alter their syntax class."
             (treesit-node-type
              (treesit-node-parent node))))))))
 
-(defun spthy-ts-mode--lemma-quote-before-p
+(defun spthy-ts-mode--formula-quote-before-p
     (_node parent &rest _)
   (when-let*
       ((quote-child
-        (and (member (treesit-node-type parent) '("lemma" "restriction"))
+        (and
+         (member
+          (treesit-node-type parent)
+          '("lemma" "restriction" "case_test" "accountability_lemma"))
          (car
           (treesit-filter-child
            parent
@@ -590,13 +596,16 @@ applies the appropriate text property to alter their syntax class."
      ((or (parent-is "^quantified_formula$")
           (node-is "^arguments$"))
       parent ,spthy-ts-mode-indent-offset)
-     ((or (n-p-gp "\"" "^lemma$" nil)
-          (n-p-gp "\"" "^restriction$" nil)
+     ((or (n-p-gp "\""
+                  ,(spthy-ts-mode--regexp-opt-line
+                    '("lemma" "restriction" "case_test"
+                      "accountability_lemma"))
+                  nil)
           (node-is "^trace_quantifier$"))
       column-0 ,spthy-ts-mode-indent-offset)
      spthy-ts-mode--logical-operator-indent-rule
-     ((and no-node spthy-ts-mode--lemma-quote-before-p)
-      prev-line 0) ; for writing lemmas
+     ((and no-node spthy-ts-mode--formula-quote-before-p)
+      prev-line 0) ; for writing formulas
      ((n-p-gp ")" "^nested_process$" nil)
       parent 0)
      ((parent-is "^nested_process$")
@@ -681,11 +690,12 @@ applies the appropriate text property to alter their syntax class."
 
 (defun spthy-ts-mode--defun-name (node)
   (pcase (treesit-node-type node)
-    ((or "lemma" "diff_lemma" "restriction")
+    ((or "lemma" "diff_lemma" "restriction" "case_test" "accountability_lemma")
      (concat
       (treesit-node-text
        (or (treesit-node-child-by-field-name node "lemma_identifier")
-           (treesit-node-child-by-field-name node "restriction_identifier")))
+           (treesit-node-child-by-field-name node "restriction_identifier")
+           (treesit-node-child-by-field-name node "test_identifier")))
       (mapconcat
        #'treesit-node-text
        (treesit-filter-child
@@ -714,6 +724,10 @@ applies the appropriate text property to alter their syntax class."
       spthy-ts-mode--treesit-non-leaf-p nil)
     ( "Lemma" "^lemma$"
       spthy-ts-mode--treesit-non-leaf-p nil)
+    ( "Case Test" "^case_test$"
+      spthy-ts-mode--treesit-non-leaf-p nil)
+    ( "Accountability Lemma" "^accountability_lemma$"
+      spthy-ts-mode--treesit-non-leaf-p nil)
     ( "diffLemma" "^diff_lemma$"
       spthy-ts-mode--treesit-non-leaf-p nil)))
 
@@ -725,6 +739,8 @@ applies the appropriate text property to alter their syntax class."
                   (?r "Rule" font-lock-variable-name-face)
                   (?R "Restriction" font-lock-function-name-face)
                   (?l "Lemma" font-lock-function-name-face)
+                  (?c "Case Test" font-lock-variable-name-face)
+                  (?a "Accountability Lemma" font-lock-function-name-face)
                   (?d "diffLemma" font-lock-function-name-face)))))
 
 ;;; Mode
