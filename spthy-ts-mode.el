@@ -32,6 +32,7 @@
 (require 'cl-lib)
 (eval-when-compile (require 'rx))
 
+;; TODO rename to spthy-ts-indent-offset
 (defcustom spthy-ts-mode-indent-offset 2
   "Number of spaces for each indentation step in `spthy-ts-mode'."
   :type 'integer
@@ -177,17 +178,7 @@ applies the appropriate text property to alter their syntax class."
     ;; also "^" and "*" operators
     (diffie-hellman "inv" "1" "DH_neutral")
     (bilinear-pairing "inv" "1" "DH_neutral" "pmult" "em")
-    (xor "zero")
-    ;; "++" operator
-    (multiset)
-    ;; "%+", "%1"
-    (natural-numbers)
-    (reliable-channel)
-    (locations-report)
-    (dest-pairing)
-    (dest-signing)
-    (dest-symmetric-encryption)
-    (dest-asymmetric-encryption)))
+    (xor "zero")))
 
 ;; Does not consider theories from included files.
 (defalias 'spthy-ts-mode--imported-theories
@@ -290,7 +281,7 @@ applies the appropriate text property to alter their syntax class."
      ;; Inspired by `spthy-mode'.
      :language spthy
      :feature quiet
-     (([,@(spthy-ts-mode--tokens-add-face 'general '@font-lock-quiet-face)])
+     (([,@(spthy-ts-mode--tokens-add-face 'quiet '@font-lock-comment-face)])
       (pub_var ["pub" ":"] @font-lock-comment-face)
       (fresh_var ["fresh" ":"] @font-lock-comment-face)
       (msg_var_or_nullary_fun ["msg" ":"] @font-lock-comment-face)
@@ -386,7 +377,6 @@ applies the appropriate text property to alter their syntax class."
      (and (eq pos (treesit-node-start node))
           (not (treesit-node-eq node (treesit-buffer-root-node)))))))
 
-;; TODO what about [] rule, lemma annotations?
 (defun spthy-ts-mode--closing-rule-delimiter-p (node parent bol &rest _)
   (let ((type (treesit-node-type node)))
     (or (member type '("]" "]->"))
@@ -566,8 +556,9 @@ applies the appropriate text property to alter their syntax class."
 (defun spthy-ts-mode--regexp-opt-line (strings)
   (concat "^" (regexp-opt strings) "$"))
 
+;; TODO allow trailing commas in fact lists in grammar, see if can eliminate some edge cases
 ;; TODO indent "predicates: ..."
-;; TODO embedded restrictions, case_test, accountability lemma, equivLemma, diffEquivLemma?
+;; TODO embedded restrictions
 (defvar spthy-ts-mode--indent-settings
   `((spthy
      ;; Don't interfere with proof formatting.
@@ -631,7 +622,8 @@ applies the appropriate text property to alter their syntax class."
       column-0 ,(max 0 (- spthy-ts-mode-indent-offset 2)))
      ((or (node-is "^premise$")
           (node-is "^conclusion$")
-          (spthy-ts-mode--prev-node-is "^\\]->$" "^action_fact$"))
+          (spthy-ts-mode--prev-node-is "^\\]->$" "^action_fact$")
+          (spthy-ts-mode--prev-node-is "^-->$"))
       column-0 ,spthy-ts-mode-indent-offset)
      spthy-ts-mode--incomplete-let-indent-rule
      ;; Handle first fact within rule premises and conclusions.
@@ -653,9 +645,6 @@ applies the appropriate text property to alter their syntax class."
       first-sibling ,spthy-ts-mode-indent-offset)
      ((n-p-gp "^,$" "^action_fact$" nil)
       parent 2)
-     ;; ((or (query ([(premise) (action_fact) (conclusion)] (_) @foo))
-     ;;      (query ([(premise) (action_fact) (conclusion)] "!" @foo)))
-     ;;  spthy-ts-mode--prev-sibling-line-first-sibling 0)
      ((or (node-is ")") (node-is "]") (node-is ">")
           ;; Handle the case of comma and empty line:
           ;; --[ A(x),
