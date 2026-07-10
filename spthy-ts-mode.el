@@ -572,6 +572,8 @@ applies the appropriate text property to alter their syntax class."
       no-indent)
      ((and no-node (spthy-ts-mode--prev-node-is ":" nil t))
       parent ,spthy-ts-mode-indent-offset)
+     ((parent-is "^inline_msr_process$")
+      parent 0)
      ((node-is "^macro$")
       parent ,spthy-ts-mode-indent-offset)
      ((or (parent-is "^theory$")
