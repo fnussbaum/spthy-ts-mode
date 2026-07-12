@@ -702,30 +702,30 @@ applies the appropriate text property to alter their syntax class."
      (treesit-node-text (treesit-node-child-by-field-name
                          node "let_identifier")))))
 
-(defun spthy-ts-mode--treesit-non-leaf-p (node)
-  (> (treesit-node-child-count node) 0))
+(defun spthy-ts-mode--parent-is-theory-p (node)
+  (treesit-node-match-p (treesit-node-parent node) "^theory$"))
 
 (defvar spthy-ts-mode--imenu-settings
   `(( "Process" ,(spthy-ts-mode--regexp-opt-line
                   '("process" "let"))
-      spthy-ts-mode--treesit-non-leaf-p nil)
+      spthy-ts-mode--parent-is-theory-p nil)
     ( "Rule" "^rule$"
-      spthy-ts-mode--treesit-non-leaf-p nil)
+      spthy-ts-mode--parent-is-theory-p nil)
     ( "Restriction" "^restriction$"
-      spthy-ts-mode--treesit-non-leaf-p nil)
+      spthy-ts-mode--parent-is-theory-p nil)
     ( "Lemma" "^lemma$"
-      spthy-ts-mode--treesit-non-leaf-p nil)
+      spthy-ts-mode--parent-is-theory-p nil)
     ( "Case Test" "^case_test$"
-      spthy-ts-mode--treesit-non-leaf-p nil)
+      spthy-ts-mode--parent-is-theory-p nil)
     ( "Accountability Lemma" "^accountability_lemma$"
-      spthy-ts-mode--treesit-non-leaf-p nil)
+      spthy-ts-mode--parent-is-theory-p nil)
     ( "diffLemma" "^diff_lemma$"
-      spthy-ts-mode--treesit-non-leaf-p nil)))
+      spthy-ts-mode--parent-is-theory-p nil)))
 
 (with-eval-after-load 'consult-imenu
   (add-to-list 'consult-imenu-config
                '(spthy-ts-mode
-                 :toplevel "Rule" :types
+                 :types
                  ((?p "Process" font-lock-variable-name-face)
                   (?r "Rule" font-lock-variable-name-face)
                   (?R "Restriction" font-lock-function-name-face)
