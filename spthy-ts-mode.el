@@ -39,12 +39,6 @@
   :safe 'integerp
   :group 'spthy)
 
-(defcustom spthy-ts-auto-close-action-fact t
-  "If non-nil, inserting \"--[\" will insert its respective \"]->\".
-Note that this only takes effect when `electric-indent-mode' or
-`electric-indent-local-mode' are active."
-  :type 'boolean)
-
 ;; Adapted from `c-ts-mode-toggle-comment-style'.
 (defun spthy-ts-mode-toggle-comment-style (&optional arg)
   "Toggle the comment style between block and line comments.
@@ -823,8 +817,7 @@ applies the appropriate text property to alter their syntax class."
     (setq-local comment-start "// ")
     (setq-local comment-end "")
 
-    (when (and spthy-ts-auto-close-action-fact
-               (boundp 'electric-pair-pairs))
+    (when (boundp 'electric-pair-pairs)
       (setq-local electric-pair-pairs
                   (cons
                    '(("--\\[" . "]->"))
