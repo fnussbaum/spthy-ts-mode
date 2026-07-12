@@ -544,10 +544,9 @@ applies the appropriate text property to alter their syntax class."
                  ;; non-comment node and the line to indent.
                  (save-excursion
                    (goto-char bol)
-                   (forward-line -1)
-                   (cl-loop for cursor = (point)
-                            then (progn (forward-line -1) (point))
-                            while (>= cursor (treesit-node-start node))
+                   (cl-loop while
+                            (and (= 0 (forward-line -1))
+                                 (>= (point) (treesit-node-start node)))
                             thereis (looking-at-p "[[:blank:]]*$")))))
        (or (null node-t)
            (string-match-p
