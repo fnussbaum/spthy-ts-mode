@@ -800,7 +800,7 @@ applies the appropriate text property to alter their syntax class."
 ;;; Mode
 
 ;;;###autoload
-(define-derived-mode spthy-ts-mode prog-mode "SPTHY-TS"
+(define-derived-mode spthy-ts-mode prog-mode "spthy-ts"
   "Major mode for editing the spthy language of the Tamarin prover."
   :syntax-table spthy-ts-mode--syntax-table
 
