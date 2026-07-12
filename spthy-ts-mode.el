@@ -482,48 +482,32 @@ applies the appropriate text property to alter their syntax class."
     `(,let-pos . ,spthy-ts-mode-indent-offset)))
 
 (defun spthy-ts-mode--indent-try-insertions (candidates bol)
-  (let ((prefix (buffer-substring-no-properties
-                 (point-min)
-                 (save-excursion
-                   (goto-char bol)
-                   (pos-bol 2))))
+  (let ((prefix (buffer-substring-no-properties (point-min) bol))
+        (indent-rules treesit-simple-indent-rules)
         (result nil))
     (with-temp-buffer
       (delay-mode-hooks (spthy-ts-mode))
-      (setf
-       (alist-get 'spthy treesit-simple-indent-rules)
-       (delete
-        'spthy-ts-mode--comma-error-indent-rule
-        (alist-get 'spthy treesit-simple-indent-rules)))
+      (setq-local treesit-simple-indent-rules indent-rules)
       (insert prefix)
-      (goto-char bol)
       (let ((temp-bol (point)))
         (catch 'result
           (dolist (str candidates)
-            (save-excursion
-              (insert str))
-            (let ((nod (treesit-node-at temp-bol))
-                  (largest-nod (spthy-ts-mode--largest-node-at temp-bol)))
-              (when (not (equal (treesit-node-type (treesit-node-parent nod))
-                                "ERROR"))
+            (insert str)
+            (let ((nod (treesit-node-at temp-bol)))
+              (when (and (equal (treesit-node-type nod) str)
+                         (not (equal (treesit-node-type (treesit-node-parent nod))
+                                     "ERROR")))
                 (throw 'result
                        (setq result
                              (treesit-simple-indent
-                              largest-nod (treesit-node-parent largest-nod) temp-bol)))))
-            (delete-region temp-bol (+ temp-bol (length str)))))))))
+                              nod (treesit-node-parent nod) temp-bol)))))
+            (delete-region temp-bol (point))))))))
 
 (defun spthy-ts-mode--missing-closing-bracket-indent-rule
     (node parent bol &rest _)
   (when (and (null node)
              (spthy-ts-mode--prev-line-error node parent bol))
     (spthy-ts-mode--indent-try-insertions '("]" "]->" ")" ">") bol)))
-
-(defun spthy-ts-mode--comma-error-indent-rule
-    (node parent bol &rest _)
-  (when (funcall
-         (spthy-ts-mode--prev-node-is "^,$" "^ERROR$" t)
-         node parent bol)
-    (spthy-ts-mode--indent-try-insertions '("a") bol)))
 
 (defvar spthy-ts-mode--missing-query
   (treesit-query-compile 'spthy '((MISSING) @missing)))
@@ -672,9 +656,8 @@ applies the appropriate text property to alter their syntax class."
      ((or (parent-is "^theory$")
           (parent-is "^tactic$"))
       column-0 0)
-     spthy-ts-mode--comma-error-indent-rule
      ((spthy-ts-mode--prev-node-is "^,$" nil t)
-      (nth-sibling 0 t) 0)
+      spthy-ts-mode--prev-sibling-line-first-sibling 0)
      ((and (parent-is "^quantified_formula$")
            (field-is "^variable$"))
       (nth-sibling 1) 0)
