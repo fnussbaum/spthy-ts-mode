@@ -482,11 +482,16 @@ applies the appropriate text property to alter their syntax class."
     (let ((node (spthy-ts-mode--prev-non-comment-node bol)))
       (and
        (not (and prev-line
-                 ;; Return nil when previous line is empty.
+                 ;; The parameter prev-line enforces that there
+                 ;; should be no blank line between the last
+                 ;; non-comment node and the line to indent.
                  (save-excursion
                    (goto-char bol)
                    (forward-line -1)
-                   (looking-at-p "[[:blank:]]*$"))))
+                   (cl-loop for cursor = (point)
+                            then (progn (forward-line -1) (point))
+                            while (>= cursor (treesit-node-start node))
+                            thereis (looking-at-p "[[:blank:]]*$")))))
        (or (null node-t)
            (string-match-p
             node-t (or (treesit-node-type node) "")))
