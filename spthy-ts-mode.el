@@ -771,6 +771,42 @@ applies the appropriate text property to alter their syntax class."
     (treesit-major-mode-setup)
     (treesit-inspect-mode)))
 
+(defun spthy-ts-mode--sp-premise-or-conclusion-p ()
+  (or
+   (funcall (spthy-ts-mode--prev-node-is ":" "^simple_rule$")
+            nil nil (- (point) 1))
+   (and (funcall (spthy-ts-mode--prev-node-is ":" "^ERROR$")
+                 nil nil (- (point) 1))
+        (treesit-node-match-p
+         (treesit-node-at
+          (save-excursion
+            (goto-char (treesit-node-start
+                        (spthy-ts-mode--prev-non-comment-node (- (point) 1))))
+            (pos-bol)))
+         "^rule$"))
+   (funcall (spthy-ts-mode--prev-node-is "]->" "^action_fact$")
+            nil nil (- (point) 1))))
+
+(defun spthy-ts-mode--sp-square-bracket-handler (_id _action _context)
+  (when (spthy-ts-mode--sp-premise-or-conclusion-p)
+    (insert " ")
+    (save-excursion
+      (insert " "))
+    (indent-for-tab-command)))
+
+(defun spthy-ts-mode--sp-action-fact-p (_id _action _context)
+  (funcall (spthy-ts-mode--prev-node-is "]" "^premise$")
+           nil nil (- (point) 3)))
+
+(with-eval-after-load 'smartparens
+  (sp-with-modes '(spthy-ts-mode)
+    (sp-local-pair "--[" "]->"
+                   :when '(spthy-ts-mode--sp-action-fact-p)
+                   :post-handlers '(" || "))
+    (sp-local-pair "[" "]"
+                   :post-handlers
+                   '(spthy-ts-mode--sp-square-bracket-handler))))
+
 ;;;###autoload
 (with-eval-after-load 'treesit
   (add-to-list
