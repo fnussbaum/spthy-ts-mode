@@ -255,9 +255,11 @@ applies the appropriate text property to alter their syntax class."
              ',other-face))))))
 
 (defun spthy-ts-mode--tokens-add-face (type face)
-  (mapcar
-   (lambda (token) (append (ensure-list token) (list face)))
-   (alist-get type spthy-ts-mode--tokens)))
+  (apply
+   #'vector
+   (mapcar
+    (lambda (token) (append (ensure-list token) (list face)))
+    (alist-get type spthy-ts-mode--tokens))))
 
 (defvar spthy-ts-mode--font-lock-rules
   `( :language spthy
@@ -273,15 +275,15 @@ applies the appropriate text property to alter their syntax class."
 
      :language spthy
      :feature operator
-     (([,@(spthy-ts-mode--tokens-add-face
-           'operators '@font-lock-operator-face)])
-      ([,@(spthy-ts-mode--tokens-add-face
-           'rule-delimiters '@font-lock-delimiter-face)]))
+     (,(spthy-ts-mode--tokens-add-face
+        'operators '@font-lock-operator-face)
+      ,(spthy-ts-mode--tokens-add-face
+        'rule-delimiters '@font-lock-delimiter-face))
 
      ;; Inspired by `spthy-mode'.
      :language spthy
      :feature quiet
-     (([,@(spthy-ts-mode--tokens-add-face 'quiet '@font-lock-comment-face)])
+     (,(spthy-ts-mode--tokens-add-face 'quiet '@font-lock-comment-face)
       (pub_var ["pub" ":"] @font-lock-comment-face)
       (fresh_var ["fresh" ":"] @font-lock-comment-face)
       (msg_var_or_nullary_fun ["msg" ":"] @font-lock-comment-face)
@@ -291,16 +293,16 @@ applies the appropriate text property to alter their syntax class."
 
      :language spthy
      :feature keyword
-     (([,@(spthy-ts-mode--tokens-add-face
-           'general '@font-lock-keyword-face)])
-      ([,@(spthy-ts-mode--tokens-add-face
-           'preprocessor '@font-lock-preprocessor-face)])
+     (,(spthy-ts-mode--tokens-add-face
+        'general '@font-lock-keyword-face)
+      ,(spthy-ts-mode--tokens-add-face
+        'preprocessor '@font-lock-preprocessor-face)
       ((atom) @font-lock-keyword-face))
 
      :language spthy
      :feature process
-     (([,@(spthy-ts-mode--tokens-add-face
-           'processes '@font-lock-keyword-face)])
+     (,(spthy-ts-mode--tokens-add-face
+        'processes '@font-lock-keyword-face)
       (predefined_process (mset_term) @spthy-ts-mode--add-face-process-identifier))
 
      :language spthy
@@ -357,16 +359,16 @@ applies the appropriate text property to alter their syntax class."
 
      :language spthy
      :feature proof
-     (([,@(spthy-ts-mode--tokens-add-face 'proof '@font-lock-keyword-face)])
+     (,(spthy-ts-mode--tokens-add-face 'proof '@font-lock-keyword-face)
       (["step" "solve"] @font-lock-function-call-face)
       (["sorry"] @font-lock-warning-face))
 
      :language spthy
      :feature tactic
-     (([,@(spthy-ts-mode--tokens-add-face
-           'tactic '@font-lock-preprocessor-face)])
-      ([,@(spthy-ts-mode--tokens-add-face
-           'tactic-function '@font-lock-preprocessor-face)]))))
+     (,(spthy-ts-mode--tokens-add-face
+        'tactic '@font-lock-preprocessor-face)
+      ,(spthy-ts-mode--tokens-add-face
+        'tactic-function '@font-lock-preprocessor-face))))
 
 ;;; Indentation
 
