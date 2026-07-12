@@ -174,32 +174,30 @@ applies the appropriate text property to alter their syntax class."
     (bilinear-pairing "inv" "1" "DH_neutral" "pmult" "em")
     (xor "zero")))
 
-(defun spthy-ts-mode--throttled-query-function (query)
-  (let ((last-time 0)
-        (last-value nil))
-    (lambda ()
-      (let ((current-time (time-convert (current-time) 'integer)))
-        (if (> current-time
-               (+ last-time 2))
-            (setq
-             last-time current-time
-             last-value
-             (cl-loop
-              for (_ . node) in
-              (treesit-query-capture 'spthy query)
-              collect
-              (list
-               :builtin
-               (treesit-node-type (treesit-node-child node 0))
-               :process
-               (treesit-node-text
-                (treesit-node-at (treesit-node-start node))))))
-          last-value)))))
+;; Used for semantic highlighting. A current limitation is that
+;; this only queries the current buffer, and does not collect
+;; information from included files.
+(defmacro spthy-ts-mode--throttled-query-function (query collect)
+  `(let ((last-time 0)
+         (last-value nil)
+         (query ,query))
+     (lambda ()
+       (let ((current-time (time-convert (current-time) 'integer)))
+         (if (> current-time
+                (+ last-time 2))
+             (setq
+              last-time current-time
+              last-value
+              (cl-loop
+               for (_ . node) in
+               (treesit-query-capture 'spthy query)
+               collect ,collect))
+           last-value)))))
 
-;; Does not consider theories from included files.
 (defalias 'spthy-ts-mode--imported-theories
   (spthy-ts-mode--throttled-query-function
-   (treesit-query-compile 'spthy '((built_in) @builtin))))
+   (treesit-query-compile 'spthy '((built_in) @builtin))
+   (treesit-node-type (treesit-node-child node 0))))
 
 (defun spthy-ts-mode--add-face-builtin-function
     (node _override start end &rest _)
@@ -207,18 +205,18 @@ applies the appropriate text property to alter their syntax class."
          (cl-loop for (theory . idents) in spthy-ts-mode--builtin-functions
                   when (member (treesit-node-text node) idents)
                   collect (symbol-name theory))
-         (mapcar (lambda (elem) (plist-get elem :builtin))
-                 (spthy-ts-mode--imported-theories))
+         (spthy-ts-mode--imported-theories)
          :test #'equal)
     (add-face-text-property
      (max (treesit-node-start node) start)
      (min (treesit-node-end node) end)
      'font-lock-builtin-face)))
 
-;; Does not consider processes from included files.
 (defalias 'spthy-ts-mode--predefined-processes
   (spthy-ts-mode--throttled-query-function
-   (treesit-query-compile 'spthy '((let (mset_term) @process)))))
+   (treesit-query-compile 'spthy '((let (mset_term) @process)))
+   (treesit-node-text
+    (treesit-node-at (treesit-node-start node)))))
 
 (defun spthy-ts-mode--add-face-process-identifier
     (node _override start end &rest _)
@@ -230,8 +228,7 @@ applies the appropriate text property to alter their syntax class."
                (cl-member-if
                 (lambda (id)
                   (equal id (treesit-node-text ident)))
-                (mapcar (lambda (elem) (plist-get elem :process))
-                        (spthy-ts-mode--predefined-processes))))
+                (spthy-ts-mode--predefined-processes)))
        'font-lock-variable-name-face))))
 
 (defvar spthy-ts-mode--builtin-facts
