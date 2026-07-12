@@ -624,7 +624,7 @@ applies the appropriate text property to alter their syntax class."
      ((or (node-is "^action_fact$")
           ;; Handle incomplete rules.
           (spthy-ts-mode--prev-node-is "^\\]$" "^premise$"))
-      column-0 ,(max 0 (- spthy-ts-mode-indent-offset 2)))
+      column-0 ,(max 0 (- spthy-ts-mode-indent-offset 1)))
      ((or (node-is "^premise$")
           (node-is "^conclusion$")
           (spthy-ts-mode--prev-node-is "^\\]->$" "^action_fact$")
