@@ -533,19 +533,19 @@ applies the appropriate text property to alter their syntax class."
         (setq parent (treesit-node-parent parent))))))
 
 (defun spthy-ts-mode--prev-sibling-line-first-sibling (node parent bol &rest _)
-  (let* ((prev-sibling
-          ;; From `prev-sibling' in `treesit-simple-indent-presets'.
-          (or (treesit-node-prev-sibling node t)
-              (treesit-node-prev-sibling
-               (treesit-node-first-child-for-pos
-                parent bol)
-               t)
-              (treesit-node-child parent -1 t)))
-         (prev-sibling-bol
-          (save-excursion
-            (goto-char (treesit-node-start prev-sibling))
-            (pos-bol)))
-         (nod prev-sibling))
+  (when-let* ((prev-sibling
+               ;; From `prev-sibling' in `treesit-simple-indent-presets'.
+               (or (treesit-node-prev-sibling node t)
+                   (treesit-node-prev-sibling
+                    (treesit-node-first-child-for-pos
+                     parent bol)
+                    t)
+                   (treesit-node-child parent -1 t)))
+              (prev-sibling-bol
+               (save-excursion
+                 (goto-char (treesit-node-start prev-sibling))
+                 (pos-bol)))
+              (nod prev-sibling))
     (while
         (and-let* ((prev-sibling (treesit-node-prev-sibling nod t))
                    ((>= (treesit-node-start prev-sibling)
