@@ -397,9 +397,9 @@ applies the appropriate text property to alter their syntax class."
     (if (eq (forward-line -1) 0)
         (progn (back-to-indentation) (spthy-ts-mode--largest-node-at (point))))))
 
-(defun spthy-ts-mode--prev-line-error (_node _parent bol &rest _)
+(defun spthy-ts-mode--error-above-p (_node _parent bol &rest _)
   (treesit-parent-until
-   (spthy-ts-mode--prev-line-node bol)
+   (spthy-ts-mode--prev-non-comment-node bol)
    (lambda (nod)
      (and (treesit-node-match-p (treesit-node-parent nod) "^ERROR$")
           (not (treesit-node-match-p nod "^theory$"))))
@@ -509,7 +509,7 @@ applies the appropriate text property to alter their syntax class."
 (defun spthy-ts-mode--missing-closing-bracket-indent-rule
     (node parent bol &rest _)
   (when (and (null node)
-             (spthy-ts-mode--prev-line-error node parent bol))
+             (spthy-ts-mode--error-above-p node parent bol))
     (spthy-ts-mode--indent-try-insertions '("]" "]->" ")" ">") bol)))
 
 (defvar spthy-ts-mode--missing-query
