@@ -203,14 +203,14 @@ applies the appropriate text property to alter their syntax class."
     (node _override start end &rest _)
   (let ((node-start (treesit-node-start node))
         (node-end (treesit-node-end node)))
-    (when (and
-           (<= start node-start node-end end)
-           (cl-intersection
-            (cl-loop for (theory . idents) in spthy-ts-mode--builtin-functions
-                     when (member (treesit-node-text node) idents)
-                     collect (symbol-name theory))
-            (spthy-ts-mode--imported-theories)
-            :test #'equal))
+    (when
+        (and
+         (<= start node-start node-end end)
+         (let ((imported-theories (spthy-ts-mode--imported-theories)))
+           (cl-loop for (theory . idents) in spthy-ts-mode--builtin-functions
+                    thereis
+                    (and (member (treesit-node-text node) idents)
+                         (member (symbol-name theory) imported-theories)))))
       (add-face-text-property
        node-start node-end 'font-lock-builtin-face))))
 
