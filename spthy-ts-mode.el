@@ -541,12 +541,17 @@ applies the appropriate text property to alter their syntax class."
   (not (member (treesit-node-type node) '("single_comment" "multi_comment"))))
 
 (defun spthy-ts-mode--prev-non-comment-node (bol)
-  (save-excursion
-    (goto-char bol)
-    (treesit-search-forward-goto
-     (treesit-node-at (point))
-     #'spthy-ts-mode--non-comment-node-p 'start 'backward 'all)
-    (treesit-node-at (point))))
+  (let ((node-at-bol (treesit-node-at bol)))
+    (if (and (< (treesit-node-start node-at-bol)
+               bol)
+             (spthy-ts-mode--non-comment-node-p node-at-bol))
+        node-at-bol
+      (save-excursion
+        (goto-char bol)
+        (treesit-search-forward-goto
+         node-at-bol
+         #'spthy-ts-mode--non-comment-node-p 'start 'backward 'all)
+        (treesit-node-at (point))))))
 
 (defun spthy-ts-mode--prev-node-is (node-t &optional parent-t prev-line)
   (lambda (_node _parent bol &rest _)
