@@ -39,19 +39,6 @@
   :safe 'integerp
   :group 'spthy)
 
-(defcustom spthy-ts-mode-highlight-declared-only t
-  "Whether to highlight only declared action facts, predicates and processes.
-This covers action fact references in formulas, predicate references and
-references to predefined processes.
-
-Note that the scope of the analysis is limited to the current buffer.
-In particular references to identifiers only declared in included files
-are not highlighted when this option is non-nil.
-
-When nil, all action fact and predicate reference identifiers
-are highlighted, regardless of whether they are defined or not."
-  :type 'boolean)
-
 ;; Adapted from `c-ts-mode-toggle-comment-style'.
 (defun spthy-ts-mode-toggle-comment-style (&optional arg)
   "Toggle the comment style between block and line comments.
