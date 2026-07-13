@@ -566,8 +566,11 @@ applies the appropriate text property to alter their syntax class."
     (catch 'term
       (while parent
         (goto-char (treesit-node-start parent))
-        (when (or (treesit-node-match-p (treesit-node-parent parent)
-                                        "^nested_process$")
+        (when (or (treesit-node-match-p
+                   (treesit-node-parent parent)
+                   (spthy-ts-mode--regexp-opt-line
+                    "nested_process" "location_process" "replication"
+                    "deterministic_choice" "nondeterministic_choice"))
                   (looking-back (rx bol (* whitespace))
                                 (line-beginning-position)))
           (throw 'term (point)))
@@ -576,7 +579,7 @@ applies the appropriate text property to alter their syntax class."
 (defvar spthy-ts-mode--process-nodes
   '("set_lock" "remove_lock" "input" "read_state" "delete_state"
     "set_state" "output" "event" "process_let" "binding"
-    "conditional" "predefined_process"))
+    "conditional" "predefined_process" "inline_msr_process"))
 
 (defun spthy-ts-mode--regexp-opt-line (&rest strings)
   (concat "^" (regexp-opt (flatten-list strings)) "$"))
@@ -633,13 +636,21 @@ applies the appropriate text property to alter their syntax class."
        ((and (parent-is "^quantified_formula$")
              (node-is "^\\.$"))
         parent 0)
-       ((or (n-p-gp "^mset_term$" "^tuple_term$" nil)
+       ((or (n-p-gp "^mset_term$"
+                    ,(rxl "tuple_term")
+                    nil)
             (n-p-gp ,(rxl "linear_fact" "persistent_fact")
                     ,(rxl "premise" "action_fact" "conclusion")
                     nil))
         (nth-sibling 0 t) 0)
        ((n-p-gp "^mset_term$" "^arguments$" nil)
         grand-parent ,spthy-ts-mode-indent-offset)
+       ((n-p-gp ,(rxl "mset_term" "term_eq" "fresh_var"
+                      "linear_fact" "persistent_fact"
+                      "equality")
+                ,(rxl spthy-ts-mode--process-nodes)
+                nil)
+        parent ,spthy-ts-mode-indent-offset)
        ((or (parent-is "^quantified_formula$")
             (node-is "^arguments$"))
         parent ,spthy-ts-mode-indent-offset)
@@ -649,13 +660,21 @@ applies the appropriate text property to alter their syntax class."
                     nil)
             (node-is "^trace_quantifier$"))
         column-0 ,spthy-ts-mode-indent-offset)
-       ((parent-is "^nested_process$")
-        parent 1)
-       ((and (parent-is "^conditional$")
-             (or (node-is "^nested_process$")
-                 (node-is ,(rxl spthy-ts-mode--process-nodes))))
+       ((parent-is "^let$")
         parent ,spthy-ts-mode-indent-offset)
-       ((parent-is ,(rxl spthy-ts-mode--process-nodes))
+       ((n-p-gp ,(rxl "||" "|" "+")
+                ,(rxl "deterministic_choice" "nondeterministic_choice")
+                nil)
+        parent 0)
+       ((parent-is ,(rxl "nested_process" "location_process" "replication"))
+        parent 1)
+       ((parent-is ,(rxl "deterministic_choice" "nondeterministic_choice"))
+        parent ,spthy-ts-mode-indent-offset)
+       ((and (parent-is "^conditional$")
+             (node-is ,(rxl spthy-ts-mode--process-nodes
+                            "nested_process" "location_process")))
+        parent ,spthy-ts-mode-indent-offset)
+       ((node-is ,(rxl spthy-ts-mode--process-nodes))
         spthy-ts-mode--nested-or-standalone-parent 0)
        ((n-p-gp "^]$"
                 ,(rxl "premise" "conclusion")
