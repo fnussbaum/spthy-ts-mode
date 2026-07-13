@@ -135,7 +135,7 @@ applies the appropriate text property to alter their syntax class."
 
 ;;; Font-lock
 
-(defvar spthy-ts-mode--tokens
+(defconst spthy-ts-mode--tokens
   '((general "theory" "begin" "end" "builtins" "functions" "export"
              "options" "equations" "predicates" "macros" "heuristic"
              "tactic" "rule" "variants" "axiom" "restriction" "process"
@@ -163,7 +163,7 @@ applies the appropriate text property to alter their syntax class."
     (delimiters "," ":" "@"))
    "Tamarin spthy tokens for tree-sitter font-locking.")
 
-(defvar spthy-ts-mode--builtin-functions
+(defconst spthy-ts-mode--builtin-functions
   '((hashing "h")
     (asymmetric-encryption "adec" "aenc" "pk")
     (signing "sign" "verify" "pk" "true")
@@ -235,10 +235,10 @@ applies the appropriate text property to alter their syntax class."
       (add-face-text-property
        ident-start ident-end 'font-lock-variable-name-face))))
 
-(defvar spthy-ts-mode--builtin-facts
+(defconst spthy-ts-mode--builtin-facts
   '("In" "Out" "Fr"))
 
-(defvar spthy-ts-mode--builtin-action-constraints
+(defconst spthy-ts-mode--builtin-action-constraints
   '("K" "KU" "KD"))
 
 (defun spthy-ts-mode--fact-font-lock-enabled ()
@@ -394,11 +394,11 @@ applies the appropriate text property to alter their syntax class."
   (when (or (treesit-node-match-p
              node
              (spthy-ts-mode--regexp-opt-line
-              '("&" "∧" "|" "∨" "==>" "⇒" "<=>" "⇔" "not" "¬")))
+              "&" "∧" "|" "∨" "==>" "⇒" "<=>" "⇔" "not" "¬"))
             (treesit-node-match-p
              parent
              (spthy-ts-mode--regexp-opt-line
-              '("conjunction" "disjunction" "imp" "iff" "negation"))))
+              "conjunction" "disjunction" "imp" "iff" "negation")))
     (cl-flet* ((above-parent-line-p (nod)
                  (< (treesit-node-start nod)
                     (save-excursion
@@ -472,7 +472,7 @@ applies the appropriate text property to alter their syntax class."
               t))
     (spthy-ts-mode--indent-try-insertions '("]" "]->" ")" ">") bol)))
 
-(defvar spthy-ts-mode--missing-query
+(defconst spthy-ts-mode--missing-query
   (treesit-query-compile 'spthy '((MISSING) @missing)))
 
 (defun spthy-ts-mode--parser-missing-node-indent-rule
@@ -581,7 +581,7 @@ applies the appropriate text property to alter their syntax class."
           (throw 'term (point)))
         (setq parent (treesit-node-parent parent))))))
 
-(defvar spthy-ts-mode--process-nodes
+(defconst spthy-ts-mode--process-nodes
   '("set_lock" "remove_lock" "input" "read_state" "delete_state"
     "set_state" "output" "event" "process_let" "binding"
     "conditional" "predefined_process" "inline_msr_process"))
