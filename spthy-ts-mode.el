@@ -490,18 +490,23 @@ applies the appropriate text property to alter their syntax class."
     (spthy-ts-mode--indent-try-insertions
      (list (treesit-node-type missing-node)) bol)))
 
+(defalias 'spthy-ts-mode--proof-exists-p
+  (spthy-ts-mode--throttled-query-function
+   (treesit-query-compile 'spthy '((lemma proof_skeleton: (_) @child)))
+   t))
+
 (defun spthy-ts-mode--within-proof-p (node &rest _)
-  ;; TODO add throttled query that there even exists a proof at all to optimize
   ;; The recursive check can be expensive, so first check that there even
   ;; exists a proof in the buffer at all.
-  (cl-flet ((proof-node-p (nod)
-              (or (member (treesit-node-type nod)
-                          '("cases" "case"))
-                  (member (treesit-node-field-name nod)
-                          '("proof_skeleton")))))
-    (treesit-parent-until
-     node
-     #'proof-node-p 'include-node)))
+  (when (spthy-ts-mode--proof-exists-p)
+    (cl-flet ((proof-node-p (nod)
+                (or (member (treesit-node-type nod)
+                            '("cases" "case"))
+                    (member (treesit-node-field-name nod)
+                            '("proof_skeleton")))))
+      (treesit-parent-until
+       node
+       #'proof-node-p 'include-node))))
 
 (defun spthy-ts-mode--non-comment-node-p (node)
   (not (member (treesit-node-type node) '("single_comment" "multi_comment"))))
