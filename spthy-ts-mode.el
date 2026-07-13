@@ -421,6 +421,16 @@ applies the appropriate text property to alter their syntax class."
                    (treesit-node-start
                     maybe-quantifier-child)))))))))
 
+(defun spthy-ts-mode--formula-writing-indent-rule (node parent bol &rest _)
+  (when (and (or (null node)
+                 (and (treesit-node-match-p node "^)$")
+                      (treesit-node-match-p parent "^nested_formula$")))
+             (spthy-ts-mode--formula-quote-before-p node parent))
+    (or (spthy-ts-mode--indent-try-insertions '("& A()" "A()") bol)
+        `(,(funcall (alist-get 'prev-line treesit-simple-indent-presets)
+                    node parent bol)
+          . 0))))
+
 (defun spthy-ts-mode--incomplete-let-indent-rule (_node _parent bol &rest _)
   (when-let* ((node (spthy-ts-mode--prev-non-comment-node bol))
               (let-pos
@@ -439,9 +449,8 @@ applies the appropriate text property to alter their syntax class."
           (dolist (str candidates)
             (insert str)
             (let ((nod (treesit-node-at temp-bol)))
-              (when (and (equal (treesit-node-type nod) str)
-                         (not (equal (treesit-node-type (treesit-node-parent nod))
-                                     "ERROR")))
+              (when (not (equal (treesit-node-type (treesit-node-parent nod))
+                                "ERROR"))
                 (throw 'result
                        (setq result
                              (treesit-simple-indent
@@ -602,10 +611,11 @@ applies the appropriate text property to alter their syntax class."
         parent 0)
        ((n-p-gp "^]->$" "^action_fact$" nil)
         parent 2)
-       ;; nested term, nested formula, nested process, location process, ifdef nested,
+       spthy-ts-mode--logical-operator-indent-rule
+       spthy-ts-mode--formula-writing-indent-rule
        ;; rule_extended_attribute?
        ((n-p-gp "^)$"
-                ,(rxl "nested_formula" "nested_term" "ifdef_nested"
+                ,(rxl "nested_term" "ifdef_nested"
                       "nested_process" "location_process")
                 nil)
         parent 0)
@@ -635,9 +645,6 @@ applies the appropriate text property to alter their syntax class."
                     nil)
             (node-is "^trace_quantifier$"))
         column-0 ,spthy-ts-mode-indent-offset)
-       spthy-ts-mode--logical-operator-indent-rule
-       ((and no-node spthy-ts-mode--formula-quote-before-p)
-        prev-line 0) ; for writing formulas
        ((parent-is "^nested_process$")
         parent 1)
        ((and (parent-is "^conditional$")
