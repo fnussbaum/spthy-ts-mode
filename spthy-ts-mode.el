@@ -628,118 +628,115 @@ applies the appropriate text property to alter their syntax class."
     "set_state" "output" "event" "process_let" "binding"
     "conditional" "predefined_process"))
 
-(defun spthy-ts-mode--regexp-opt-line (strings)
-  (concat "^" (regexp-opt strings) "$"))
+(defun spthy-ts-mode--regexp-opt-line (&rest strings)
+  (concat "^" (regexp-opt (flatten-list strings)) "$"))
 
 ;; TODO allow trailing commas in fact lists in grammar, see if can eliminate some edge cases
 ;; TODO indent "predicates: ..."
 ;; TODO embedded restrictions
 (defvar spthy-ts-mode--indent-settings
-  `((spthy
-     ;; Don't interfere with proof formatting.
-     (spthy-ts-mode--within-proof-p
-      no-indent)
-     ((and no-node (spthy-ts-mode--prev-node-is ":" nil t))
-      parent ,spthy-ts-mode-indent-offset)
-     ;; Handle incomplete rules.
-     ((spthy-ts-mode--prev-node-is ,(spthy-ts-mode--regexp-opt-line '("[" "--[")) nil t)
-      spthy-ts-mode--end-of-prev-node 1)
-     ;; Handle the case where the parser itself does not
-     ;; recover with a MISSING node.
-     spthy-ts-mode--missing-closing-bracket-indent-rule
-     ;; Handle the case where the parser does recover.
-     spthy-ts-mode--parser-missing-node-indent-rule
-     ((parent-is "^inline_msr_process$")
-      parent 0)
-     ((node-is "^macro$")
-      parent ,spthy-ts-mode-indent-offset)
-     ((or (parent-is "^theory$")
-          (parent-is "^tactic$"))
-      column-0 0)
-     ((spthy-ts-mode--prev-node-is "^,$" nil t)
-      spthy-ts-mode--prev-sibling-line-first-sibling 0)
-     ((and (parent-is "^quantified_formula$")
-           (field-is "^variable$"))
-      (nth-sibling 1) 0)
-     ((and (parent-is "^quantified_formula$")
-           (node-is "^\\.$"))
-      parent 0)
-     ((or (parent-is "^quantified_formula$")
-          (node-is "^arguments$"))
-      parent ,spthy-ts-mode-indent-offset)
-     ((or (n-p-gp "\""
-                  ,(spthy-ts-mode--regexp-opt-line
-                    '("lemma" "restriction" "case_test"
-                      "accountability_lemma"))
-                  nil)
-          (node-is "^trace_quantifier$"))
-      column-0 ,spthy-ts-mode-indent-offset)
-     spthy-ts-mode--logical-operator-indent-rule
-     ((and no-node spthy-ts-mode--formula-quote-before-p)
-      prev-line 0) ; for writing formulas
-     ((n-p-gp ")" "^nested_process$" nil)
-      parent 0)
-     ((parent-is "^nested_process$")
-      parent 1)
-     ((and (parent-is "^conditional$")
-           (or (node-is "^nested_process$")
-               (node-is ,(spthy-ts-mode--regexp-opt-line
-                          spthy-ts-mode--process-nodes))))
-      parent ,spthy-ts-mode-indent-offset)
-     ((parent-is ,(spthy-ts-mode--regexp-opt-line
-                   spthy-ts-mode--process-nodes))
-      spthy-ts-mode--nested-or-standalone-parent 0)
-     ((n-p-gp "^]$"
-              ,(spthy-ts-mode--regexp-opt-line
-                '("premise" "conclusion"))
-              nil)
-      parent 0)
-     ((n-p-gp "^]->$" "^action_fact$" nil)
-      parent 2)
-     ((n-p-gp "^in$" "^rule_let_block$" nil)
-      parent 0)
-     ((node-is "^-->$")
-      column-0 ,(max 0 (- spthy-ts-mode-indent-offset 1)))
-     ((or (node-is "^action_fact$")
-          ;; Handle incomplete rules.
-          (spthy-ts-mode--prev-node-is "^\\]$" "^premise$"))
-      column-0 ,(max 0 (- spthy-ts-mode-indent-offset 1)))
-     ((or (node-is "^premise$")
-          (node-is "^conclusion$")
-          (spthy-ts-mode--prev-node-is "^\\]->$" "^action_fact$")
-          (spthy-ts-mode--prev-node-is "^-->$"))
-      column-0 ,spthy-ts-mode-indent-offset)
-     spthy-ts-mode--incomplete-let-indent-rule
-     ;; Handle first fact within rule premises and conclusions.
-     ((match nil ,(spthy-ts-mode--regexp-opt-line
-                   '("premise" "conclusion"))
-             nil 1 1)
-      parent 2)
-     ;; Handle first action fact.
-     ((match nil "^action_fact$"
-             nil 1 1)
-      parent 4)
-     ((or (node-is ")") (node-is "]") (node-is ">")
-          ;; Handle the case of comma and empty line:
-          ;; --[ A(x),
-          ;;
-          ;;  |]->
-          spthy-ts-mode--closing-rule-bracket-p)
-      spthy-ts-mode--prev-matching-bracket-start 0)
-     ((or (n-p-gp nil nil "^theory$")
-          (parent-is "^simple_rule$")
-          (n-p-gp nil nil "^tactic$")
-          (parent-is "^rule_let_block$"))
-      first-sibling ,spthy-ts-mode-indent-offset)
-     ((n-p-gp "^,$" "^action_fact$" nil)
-      parent 2)
-     ((and no-node (or (parent-is "^premise$")
-                       (parent-is "^conclusion$")))
-      parent 0)
-     ((and no-node (parent-is "^action_fact$"))
-      parent 2)
-     (no-node prev-line 0)
-     (catch-all parent 0))))
+  (cl-macrolet ((rxl (&rest args)
+                  `(spthy-ts-mode--regexp-opt-line ,@args)))
+    `((spthy
+       ;; Don't interfere with proof formatting.
+       (spthy-ts-mode--within-proof-p
+        no-indent)
+       ((and no-node (spthy-ts-mode--prev-node-is ":" nil t))
+        parent ,spthy-ts-mode-indent-offset)
+       ;; Handle incomplete rules.
+       ((spthy-ts-mode--prev-node-is ,(rxl "[" "--[") nil t)
+        spthy-ts-mode--end-of-prev-node 1)
+       ;; Handle the case where the parser itself does not
+       ;; recover with a MISSING node.
+       spthy-ts-mode--missing-closing-bracket-indent-rule
+       ;; Handle the case where the parser does recover.
+       spthy-ts-mode--parser-missing-node-indent-rule
+       ((parent-is "^inline_msr_process$")
+        parent 0)
+       ((node-is "^macro$")
+        parent ,spthy-ts-mode-indent-offset)
+       ((or (parent-is "^theory$")
+            (parent-is "^tactic$"))
+        column-0 0)
+       ((spthy-ts-mode--prev-node-is "^,$" nil t)
+        spthy-ts-mode--prev-sibling-line-first-sibling 0)
+       ((and (parent-is "^quantified_formula$")
+             (field-is "^variable$"))
+        (nth-sibling 1) 0)
+       ((and (parent-is "^quantified_formula$")
+             (node-is "^\\.$"))
+        parent 0)
+       ((or (parent-is "^quantified_formula$")
+            (node-is "^arguments$"))
+        parent ,spthy-ts-mode-indent-offset)
+       ((or (n-p-gp "\""
+                    ,(rxl "lemma" "restriction" "case_test"
+                          "accountability_lemma")
+                    nil)
+            (node-is "^trace_quantifier$"))
+        column-0 ,spthy-ts-mode-indent-offset)
+       spthy-ts-mode--logical-operator-indent-rule
+       ((and no-node spthy-ts-mode--formula-quote-before-p)
+        prev-line 0) ; for writing formulas
+       ((n-p-gp ")" "^nested_process$" nil)
+        parent 0)
+       ((parent-is "^nested_process$")
+        parent 1)
+       ((and (parent-is "^conditional$")
+             (or (node-is "^nested_process$")
+                 (node-is ,(rxl spthy-ts-mode--process-nodes))))
+        parent ,spthy-ts-mode-indent-offset)
+       ((parent-is ,(rxl spthy-ts-mode--process-nodes))
+        spthy-ts-mode--nested-or-standalone-parent 0)
+       ((n-p-gp "^]$"
+                ,(rxl "premise" "conclusion")
+                nil)
+        parent 0)
+       ((n-p-gp "^]->$" "^action_fact$" nil)
+        parent 2)
+       ((n-p-gp "^in$" "^rule_let_block$" nil)
+        parent 0)
+       ((node-is "^-->$")
+        column-0 ,(max 0 (- spthy-ts-mode-indent-offset 1)))
+       ((or (node-is "^action_fact$")
+            ;; Handle incomplete rules.
+            (spthy-ts-mode--prev-node-is "^\\]$" "^premise$"))
+        column-0 ,(max 0 (- spthy-ts-mode-indent-offset 1)))
+       ((or (node-is "^premise$")
+            (node-is "^conclusion$")
+            (spthy-ts-mode--prev-node-is "^\\]->$" "^action_fact$")
+            (spthy-ts-mode--prev-node-is "^-->$"))
+        column-0 ,spthy-ts-mode-indent-offset)
+       spthy-ts-mode--incomplete-let-indent-rule
+       ;; Handle first fact within rule premises and conclusions.
+       ((match nil ,(rxl "premise" "conclusion")
+               nil 1 1)
+        parent 2)
+       ;; Handle first action fact.
+       ((match nil "^action_fact$"
+               nil 1 1)
+        parent 4)
+       ((or (node-is ")") (node-is "]") (node-is ">")
+            ;; Handle the case of comma and empty line:
+            ;; --[ A(x),
+            ;;
+            ;;  |]->
+            spthy-ts-mode--closing-rule-bracket-p)
+        spthy-ts-mode--prev-matching-bracket-start 0)
+       ((or (n-p-gp nil nil "^theory$")
+            (parent-is "^simple_rule$")
+            (n-p-gp nil nil "^tactic$")
+            (parent-is "^rule_let_block$"))
+        first-sibling ,spthy-ts-mode-indent-offset)
+       ((n-p-gp "^,$" "^action_fact$" nil)
+        parent 2)
+       ((and no-node (or (parent-is "^premise$")
+                         (parent-is "^conclusion$")))
+        parent 0)
+       ((and no-node (parent-is "^action_fact$"))
+        parent 2)
+       (no-node prev-line 0)
+       (catch-all parent 0)))))
 
 ;;; Things
 
