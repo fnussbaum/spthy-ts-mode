@@ -422,10 +422,10 @@ applies the appropriate text property to alter their syntax class."
                     maybe-quantifier-child)))))))))
 
 (defun spthy-ts-mode--formula-writing-indent-rule (node parent bol &rest _)
-  (when (and (or (null node)
-                 (and (treesit-node-match-p node "^)$")
-                      (treesit-node-match-p parent "^nested_formula$")))
-             (spthy-ts-mode--formula-quote-before-p node parent))
+  (when (or (and (null node)
+                 (spthy-ts-mode--formula-quote-before-p node parent))
+            (and (treesit-node-match-p node "^)$")
+                 (treesit-node-match-p parent "^nested_formula$")))
     (or (spthy-ts-mode--indent-try-insertions '("& A()" "A()") bol)
         `(,(funcall (alist-get 'prev-line treesit-simple-indent-presets)
                     node parent bol)
@@ -444,17 +444,21 @@ applies the appropriate text property to alter their syntax class."
     (with-temp-buffer
       (delay-mode-hooks (spthy-ts-mode))
       (insert prefix)
+      (goto-char bol)
       (let ((temp-bol (point)))
         (catch 'result
           (dolist (str candidates)
             (insert str)
-            (let ((nod (treesit-node-at temp-bol)))
+            (let* ((nod (treesit-node-at temp-bol))
+                   (largest-nod (treesit--indent-largest-node-at temp-bol)))
               (when (not (equal (treesit-node-type (treesit-node-parent nod))
                                 "ERROR"))
                 (throw 'result
                        (setq result
                              (treesit-simple-indent
-                              nod (treesit-node-parent nod) temp-bol)))))
+                              largest-nod
+                              (treesit-node-parent largest-nod)
+                              temp-bol)))))
             (delete-region temp-bol (point))))))))
 
 (defun spthy-ts-mode--missing-closing-bracket-indent-rule
