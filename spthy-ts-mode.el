@@ -441,10 +441,8 @@ applies the appropriate text property to alter their syntax class."
     node))
 
 (defun spthy-ts-mode--prev-matching-bracket-start (node &rest _)
-  ;; For --[, we need the location of the bracket [.
-  (- (treesit-node-end
-      (spthy-ts-mode--prev-matching-bracket-node node))
-     1))
+  (treesit-node-start
+   (spthy-ts-mode--prev-matching-bracket-node node)))
 
 (defun spthy-ts-mode--logical-operator-indent-rule (node parent &rest _)
   (when (or (treesit-node-match-p
@@ -639,7 +637,6 @@ applies the appropriate text property to alter their syntax class."
 (defun spthy-ts-mode--regexp-opt-line (&rest strings)
   (concat "^" (regexp-opt (flatten-list strings)) "$"))
 
-;; TODO allow trailing commas in fact lists in grammar, see if can eliminate some edge cases
 ;; TODO indent "predicates: ..."
 ;; TODO embedded restrictions
 (defvar spthy-ts-mode--indent-settings
@@ -724,12 +721,7 @@ applies the appropriate text property to alter their syntax class."
        ((match nil "^action_fact$"
                nil 1 1)
         parent 4)
-       ((or (node-is ")") (node-is "]") (node-is ">")
-            ;; Handle the case of comma and empty line:
-            ;; --[ A(x),
-            ;;
-            ;;  |]->
-            spthy-ts-mode--closing-rule-bracket-p)
+       ((or (node-is ")") (node-is "]") (node-is ">"))
         spthy-ts-mode--prev-matching-bracket-start 0)
        ((or (n-p-gp nil nil "^theory$")
             (parent-is "^simple_rule$")
