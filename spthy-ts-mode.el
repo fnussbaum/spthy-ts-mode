@@ -398,9 +398,12 @@ applies the appropriate text property to alter their syntax class."
         (progn (back-to-indentation) (spthy-ts-mode--largest-node-at (point))))))
 
 (defun spthy-ts-mode--prev-line-error (_node _parent bol &rest _)
-  (let ((prev-line-node (spthy-ts-mode--prev-line-node bol)))
-    (or (treesit-node-match-p prev-line-node "^ERROR$")
-        (treesit-node-match-p (treesit-node-parent prev-line-node) "^ERROR$"))))
+  (treesit-parent-until
+   (spthy-ts-mode--prev-line-node bol)
+   (lambda (nod)
+     (and (treesit-node-match-p (treesit-node-parent nod) "^ERROR$")
+          (not (treesit-node-match-p nod "^theory$"))))
+   t))
 
 (defun spthy-ts-mode--closing-rule-bracket-p (node parent bol &rest _)
   (let ((type (treesit-node-type node)))
