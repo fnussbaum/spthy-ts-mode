@@ -169,7 +169,7 @@ applies the appropriate text property to alter their syntax class."
     (signing "sign" "verify" "pk" "true")
     (revealing-signing "revealSign" "revealVerify" "getMessage" "pk" "true")
     (symmetric-encryption "senc" "sdec")
-    ;; also "^" and "*" operators
+    ;; also includes "^" and "*" operators
     (diffie-hellman "inv" "1" "DH_neutral")
     (bilinear-pairing "inv" "1" "DH_neutral" "pmult" "em")
     (xor "zero")))
@@ -201,16 +201,18 @@ applies the appropriate text property to alter their syntax class."
 
 (defun spthy-ts-mode--add-face-builtin-function
     (node _override start end &rest _)
-  (when (cl-intersection
-         (cl-loop for (theory . idents) in spthy-ts-mode--builtin-functions
-                  when (member (treesit-node-text node) idents)
-                  collect (symbol-name theory))
-         (spthy-ts-mode--imported-theories)
-         :test #'equal)
-    (add-face-text-property
-     (max (treesit-node-start node) start)
-     (min (treesit-node-end node) end)
-     'font-lock-builtin-face)))
+  (let ((node-start (treesit-node-start node))
+        (node-end (treesit-node-end node)))
+    (when (and
+           (<= start node-start node-end end)
+           (cl-intersection
+            (cl-loop for (theory . idents) in spthy-ts-mode--builtin-functions
+                     when (member (treesit-node-text node) idents)
+                     collect (symbol-name theory))
+            (spthy-ts-mode--imported-theories)
+            :test #'equal))
+      (add-face-text-property
+       node-start node-end 'font-lock-builtin-face))))
 
 (defalias 'spthy-ts-mode--predefined-processes
   (spthy-ts-mode--throttled-query-function
@@ -220,16 +222,18 @@ applies the appropriate text property to alter their syntax class."
 
 (defun spthy-ts-mode--add-face-process-identifier
     (node _override start end &rest _)
-  (let ((ident (treesit-node-at (treesit-node-start node))))
-    (add-face-text-property
-     (max (treesit-node-start ident) start)
-     (min (treesit-node-end ident) end)
-     (when (or (treesit-node-match-p (treesit-node-parent node) "^let$")
-               (cl-member-if
-                (lambda (id)
-                  (equal id (treesit-node-text ident)))
-                (spthy-ts-mode--predefined-processes)))
-       'font-lock-variable-name-face))))
+  (let* ((ident (treesit-node-at (treesit-node-start node)))
+         (ident-start (treesit-node-start ident))
+         (ident-end (treesit-node-end ident)))
+    (when
+        (and (<= start ident-start ident-end end)
+             (or (treesit-node-match-p (treesit-node-parent node) "^let$")
+                 (cl-member-if
+                  (lambda (id)
+                    (equal id (treesit-node-text ident)))
+                  (spthy-ts-mode--predefined-processes))))
+      (add-face-text-property
+       ident-start ident-end 'font-lock-variable-name-face))))
 
 (defvar spthy-ts-mode--builtin-facts
   '("In" "Out" "Fr"))
@@ -257,14 +261,16 @@ applies the appropriate text property to alter their syntax class."
        spthy-ts-mode--builtin-facts))
  do
  (eval `(defun ,name (node _override start end &rest _)
-          (add-face-text-property
-           (max (treesit-node-start node) start)
-           (min (treesit-node-end node) end)
-           (cond
-            ((member (treesit-node-text node) ,builtin-list)
-             ',builtin-face)
-            ((spthy-ts-mode--fact-font-lock-enabled)
-             ',other-face))))))
+          (let ((node-start (treesit-node-start node))
+                (node-end (treesit-node-end node)))
+            (when (<= start node-start node-end end)
+              (add-face-text-property
+               node-start node-end
+               (cond
+                ((member (treesit-node-text node) ,builtin-list)
+                 ',builtin-face)
+                ((spthy-ts-mode--fact-font-lock-enabled)
+                 ',other-face))))))))
 
 (defun spthy-ts-mode--tokens-add-face (type face)
   (apply
