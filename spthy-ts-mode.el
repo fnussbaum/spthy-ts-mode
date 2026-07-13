@@ -881,7 +881,7 @@ applies the appropriate text property to alter their syntax class."
    'treesit-language-source-alist
    '(spthy "https://github.com/fnussbaum/tamarin-prover"
            :source-dir "tree-sitter/tree-sitter-spthy/src"
-           :commit "e437ecd4bbbd25c6f73a05f92c589fa1febec689")
+           :commit "36d47f75150a028b53ce3ae8022994dc092d1e86")
    t)
   (when (treesit-ready-p 'spthy)
     (add-to-list 'auto-mode-alist '("\\.spthy\\'" . spthy-ts-mode))))
