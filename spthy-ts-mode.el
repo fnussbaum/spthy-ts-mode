@@ -316,7 +316,8 @@ applies the appropriate text property to alter their syntax class."
         'general '@font-lock-keyword-face)
       ,(spthy-ts-mode--tokens-add-face
         'preprocessor '@font-lock-preprocessor-face)
-      ((atom) @font-lock-keyword-face))
+      ((atom) @font-lock-keyword-face)
+      ("configuration" @font-lock-constant-face))
 
      :language spthy
      :feature process
