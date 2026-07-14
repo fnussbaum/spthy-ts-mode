@@ -30,6 +30,7 @@
 
 (require 'treesit)
 (require 'cl-lib)
+(require 'c-ts-common) ; for comment indentation and filling
 (eval-when-compile (require 'rx))
 
 ;; TODO rename to spthy-ts-indent-offset
@@ -595,9 +596,28 @@ applies the appropriate text property to alter their syntax class."
        ;; Don't interfere with proof formatting.
        (spthy-ts-mode--within-proof-p
         no-indent)
+
+       ;; Handle block comments (adapted from `c-ts-mode--simple-indent-rules').
+       ;; `c-ts-common-looking-at-star' has to come before
+       ;; `c-ts-common-comment-2nd-line-matcher'.
+       ((and (parent-is "^multi_comment$") c-ts-common-looking-at-star)
+        c-ts-common-comment-start-after-first-star -1)
+       (,(lambda (_n parent &rest _)
+           ;; Adapted from `c-ts-common-comment-2nd-line-matcher'
+           (and (equal (treesit-node-type parent) "multi_comment")
+                (save-excursion
+                  (forward-line -1)
+                  (back-to-indentation)
+                  (eq (point) (treesit-node-start parent)))))
+        c-ts-common-comment-2nd-line-anchor
+        1)
+       ((parent-is "comment") prev-adaptive-prefix 0)
+
+       ;; Handle incomplete definitions.
        ((and no-node (spthy-ts-mode--prev-node-is ":" nil t))
         parent ,spthy-ts-mode-indent-offset)
        ;; Handle incomplete rules.
+       ;; TODO is this still necessary?
        ((spthy-ts-mode--prev-node-is ,(rxl "[" "--[") nil t)
         spthy-ts-mode--end-of-prev-node ,spthy-ts-mode-indent-offset)
 
@@ -828,8 +848,7 @@ applies the appropriate text property to alter their syntax class."
     (setq-local treesit-simple-imenu-settings spthy-ts-mode--imenu-settings)
     (setq-local treesit-thing-settings spthy-ts-mode--treesit-things)
 
-    (setq-local comment-start "// ")
-    (setq-local comment-end "")
+    (c-ts-common-comment-setup)
 
     (when (boundp 'electric-pair-pairs)
       (setq-local electric-pair-pairs
