@@ -423,10 +423,19 @@ applies the appropriate text property to alter their syntax class."
 
 (defun spthy-ts-mode--formula-writing-indent-rule (node parent bol &rest _)
   (when (or (and (null node)
-                 (spthy-ts-mode--formula-quote-before-p node parent))
+                 (and-let* ((prev-node (spthy-ts-mode--prev-non-comment-node bol t)))
+                   (member (treesit-node-type
+                            (treesit-search-forward
+                             prev-node
+                             (lambda (nod)
+                               (treesit-node-match-p
+                                (treesit-node-parent nod) "^theory$"))
+                             'backward))
+                           '("lemma" "restriction" "case_test"
+                             "accountability_lemma" "predicates"))))
             (and (treesit-node-match-p node "^)$")
                  (treesit-node-match-p parent "^nested_formula$")))
-    (or (spthy-ts-mode--indent-try-insertions '("& A()" "A()") bol)
+    (or (spthy-ts-mode--indent-try-insertions '("a. A()" "& A()" "A()") bol)
         `(,(funcall (alist-get 'prev-line treesit-simple-indent-presets)
                     node parent bol)
           . 0))))
@@ -439,8 +448,7 @@ applies the appropriate text property to alter their syntax class."
     `(,let-pos . ,spthy-ts-mode-indent-offset)))
 
 (defun spthy-ts-mode--indent-try-insertions (candidates bol)
-  (let ((prefix (buffer-substring-no-properties (point-min) bol))
-        (result nil))
+  (let ((prefix (buffer-substring-no-properties (point-min) bol)))
     (with-temp-buffer
       (delay-mode-hooks (spthy-ts-mode))
       (insert prefix)
@@ -454,15 +462,14 @@ applies the appropriate text property to alter their syntax class."
               (when (not (equal (treesit-node-type (treesit-node-parent nod))
                                 "ERROR"))
                 (throw 'result
-                       (setq result
-                             (treesit-simple-indent
-                              largest-nod
-                              (treesit-node-parent largest-nod)
-                              temp-bol)))))
+                        (treesit-simple-indent
+                         largest-nod
+                         (treesit-node-parent largest-nod)
+                         temp-bol))))
             (delete-region temp-bol (point))))))))
 
 (defun spthy-ts-mode--missing-closing-bracket-indent-rule
-    (node parent bol &rest _)
+    (node _parent bol &rest _)
   (when (and (null node)
              (treesit-parent-until
               (spthy-ts-mode--prev-non-comment-node bol)
@@ -492,7 +499,7 @@ applies the appropriate text property to alter their syntax class."
 
 (defalias 'spthy-ts-mode--proof-exists-p
   (spthy-ts-mode--throttled-query-function
-   (treesit-query-compile 'spthy '((lemma proof_skeleton: (_) @child)))
+   (treesit-query-compile 'spthy '((lemma proof_skeleton: (_) @proof)))
    t))
 
 (defun spthy-ts-mode--within-proof-p (node &rest _)
@@ -511,33 +518,37 @@ applies the appropriate text property to alter their syntax class."
 (defun spthy-ts-mode--non-comment-node-p (node)
   (not (member (treesit-node-type node) '("single_comment" "multi_comment"))))
 
-(defun spthy-ts-mode--prev-non-comment-node (bol)
-  (let ((node-at-bol (treesit-node-at bol)))
-    (if (and (< (treesit-node-start node-at-bol)
-               bol)
-             (spthy-ts-mode--non-comment-node-p node-at-bol))
-        node-at-bol
-      (save-excursion
-        (goto-char bol)
-        (treesit-search-forward-goto
-         node-at-bol
-         #'spthy-ts-mode--non-comment-node-p 'start 'backward 'all)
-        (treesit-node-at (point))))))
+(defun spthy-ts-mode--prev-non-comment-node (bol &optional prev-line)
+  (let* ((node-at-bol (treesit-node-at bol))
+         (node
+          (if (and (< (treesit-node-start node-at-bol)
+                      bol)
+                   (spthy-ts-mode--non-comment-node-p node-at-bol))
+              node-at-bol
+            (save-excursion
+              (goto-char bol)
+              (treesit-search-forward-goto
+               node-at-bol
+               #'spthy-ts-mode--non-comment-node-p 'start 'backward 'all)
+              (treesit-node-at (point))))))
+    (unless (and prev-line
+             (save-excursion
+               (goto-char bol)
+               (cl-loop while
+                        (and (= 0 (forward-line -1))
+                             (>= (point) (treesit-node-start node)))
+                        thereis (looking-at-p "[[:blank:]]*$"))))
+      node)))
 
 (defun spthy-ts-mode--prev-node-is (node-t &optional parent-t prev-line)
   (lambda (_node _parent bol &rest _)
-    (let ((node (spthy-ts-mode--prev-non-comment-node bol)))
+    (let ((node (spthy-ts-mode--prev-non-comment-node bol prev-line)))
       (and
-       (not (and prev-line
-                 ;; The parameter prev-line enforces that there
-                 ;; should be no blank line between the last
-                 ;; non-comment node and the line to indent.
-                 (save-excursion
-                   (goto-char bol)
-                   (cl-loop while
-                            (and (= 0 (forward-line -1))
-                                 (>= (point) (treesit-node-start node)))
-                            thereis (looking-at-p "[[:blank:]]*$")))))
+       ;; (not (and prev-line
+       ;;           ;; The parameter prev-line enforces that there
+       ;;           ;; should be no blank line between the last
+       ;;           ;; non-comment node and the line to indent.
+       ;;           ))
        (or (null node-t)
            (string-match-p
             node-t (or (treesit-node-type node) "")))
@@ -546,20 +557,6 @@ applies the appropriate text property to alter their syntax class."
             parent-t
             (treesit-node-type
              (treesit-node-parent node))))))))
-
-(defun spthy-ts-mode--formula-quote-before-p
-    (_node parent &rest _)
-  (when-let*
-      ((quote-child
-        (and
-         (member
-          (treesit-node-type parent)
-          '("lemma" "restriction" "case_test" "accountability_lemma"))
-         (car
-          (treesit-filter-child
-           parent
-           (lambda (nod) (equal (treesit-node-type nod) "\"")))))))
-    (< (treesit-node-start quote-child) (point))))
 
 (defun spthy-ts-mode--end-of-prev-node
     (_node _parent bol)
@@ -603,11 +600,16 @@ applies the appropriate text property to alter their syntax class."
        ;; Handle incomplete rules.
        ((spthy-ts-mode--prev-node-is ,(rxl "[" "--[") nil t)
         spthy-ts-mode--end-of-prev-node ,spthy-ts-mode-indent-offset)
-       ;; Handle the case where the parser itself does not
-       ;; recover with a MISSING node.
+
+       spthy-ts-mode--logical-operator-indent-rule
+       spthy-ts-mode--formula-writing-indent-rule
+
+       ;; Handle some incomplete cases where the parser
+       ;; itself does not recover with a MISSING node.
        spthy-ts-mode--missing-closing-bracket-indent-rule
-       ;; Handle the case where the parser does recover.
+       ;; Handle cases where the parser does recover.
        spthy-ts-mode--parser-missing-node-indent-rule
+
        ((parent-is "^inline_msr_process$")
         parent 0)
        ((node-is "^macro$")
@@ -623,9 +625,15 @@ applies the appropriate text property to alter their syntax class."
         parent 0)
        ((n-p-gp "^]->$" "^action_fact$" nil)
         parent 2)
-       spthy-ts-mode--logical-operator-indent-rule
-       spthy-ts-mode--formula-writing-indent-rule
-       ;; rule_extended_attribute?
+
+       ((or
+         (n-p-gp "^<=>$" "^predicate$" nil)
+         (and no-node
+              (spthy-ts-mode--prev-node-is "^<=>$" "^predicate$" t))
+         (and (parent-is "^predicate$")
+              (field-is "^formula$")))
+        parent ,spthy-ts-mode-indent-offset)
+
        ((n-p-gp "^)$"
                 ,(rxl "nested_term" "ifdef_nested"
                       "nested_process" "location_process")
