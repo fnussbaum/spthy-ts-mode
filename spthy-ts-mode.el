@@ -633,8 +633,6 @@ applies the appropriate text property to alter their syntax class."
 
        ((parent-is "^inline_msr_process$")
         parent 0)
-       ((node-is "^macro$")
-        parent ,spthy-ts-mode-indent-offset)
        ((or (parent-is "^theory$")
             (parent-is "^tactic$"))
         column-0 0)
@@ -662,8 +660,13 @@ applies the appropriate text property to alter their syntax class."
         parent 0)
        ((node-is "^)$")
         parent ,spthy-ts-mode-indent-offset)
-       ;; TODO cover restriction attr and other sequences,
-       ;; ] brackets (though fallback parent might be good enough for ])
+       ((and (node-is "^]$")
+             (spthy-ts-mode--prev-node-is "^,$"))
+        (nth-sibling 0 t) 0)
+       ((node-is
+         ,(rxl "rule_attr" "function_attribute" "lemma_attr"
+               "diff_lemma_attr" "restriction_attr" "language"))
+        (nth-sibling 0 t) 0)
        ((and (parent-is "^quantified_formula$")
              (field-is "^variable$"))
         (nth-sibling 1) 0)
@@ -686,7 +689,8 @@ applies the appropriate text property to alter their syntax class."
                 nil)
         parent ,spthy-ts-mode-indent-offset)
        ((or (parent-is "^quantified_formula$")
-            (node-is "^arguments$"))
+            (node-is "^arguments$")
+            (node-is "^macro$"))
         parent ,spthy-ts-mode-indent-offset)
        ((or (n-p-gp "\""
                     ,(rxl "lemma" "restriction" "case_test"
