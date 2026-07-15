@@ -598,13 +598,18 @@ applies the appropriate text property to alter their syntax class."
        (spthy-ts-mode--within-proof-p
         no-indent)
 
-       ;; Handle block comments (adapted from `c-ts-mode--simple-indent-rules').
+       ;; Comments.
+       ((node-is ,(rxl "multi_comment" "single_comment"))
+        no-indent)
+
+       ;; Block comments (adapted from `c-ts-mode--simple-indent-rules').
        ;; `c-ts-common-looking-at-star' has to come before
        ;; `c-ts-common-comment-2nd-line-matcher'.
        ((and (parent-is "^multi_comment$") c-ts-common-looking-at-star)
         c-ts-common-comment-start-after-first-star -1)
        (,(lambda (_n parent &rest _)
-           ;; Adapted from `c-ts-common-comment-2nd-line-matcher'
+           ;; Adapted from `c-ts-common-comment-2nd-line-matcher',
+           ;; which has the type "comment" hard coded.
            (and (equal (treesit-node-type parent) "multi_comment")
                 (save-excursion
                   (forward-line -1)
@@ -612,20 +617,29 @@ applies the appropriate text property to alter their syntax class."
                   (eq (point) (treesit-node-start parent)))))
         c-ts-common-comment-2nd-line-anchor
         1)
-       ((parent-is "comment") prev-adaptive-prefix 0)
+       ((parent-is "^multi_comment$") prev-adaptive-prefix 0)
 
-       ;; Handle incomplete definitions.
+       ;; Formal comments.
+       ((and no-node
+             (parent-is "^formal_comment$")
+             ,(lambda (_n _p bol &rest _)
+                (save-excursion
+                  (goto-char bol)
+                  (looking-at-p "[[:blank:]]*$"))))
+        prev-line 0)
+       ((parent-is "^formal_comment$") no-indent)
+
+       ;; Incomplete definitions.
        ((and no-node (spthy-ts-mode--prev-node-is ":" nil t))
         parent ,spthy-ts-mode-indent-offset)
-       ;; Handle incomplete rules.
-       ;; TODO is this still necessary?
+       ;; Incomplete rules.
        ((spthy-ts-mode--prev-node-is ,(rxl "[" "--[") nil t)
         spthy-ts-mode--end-of-prev-node ,spthy-ts-mode-indent-offset)
 
        spthy-ts-mode--logical-operator-indent-rule
        spthy-ts-mode--formula-writing-indent-rule
 
-       ;; Handle some incomplete cases where the parser
+       ;; Some incomplete cases where the parser
        ;; itself does not recover with a MISSING node.
        spthy-ts-mode--missing-closing-bracket-indent-rule
        ;; Handle cases where the parser does recover.
