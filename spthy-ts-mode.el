@@ -329,6 +329,7 @@ applies the appropriate text property to alter their syntax class."
       (diff_lemma lemma_identifier: (ident) @font-lock-function-name-face)
       (case_test test_identifier: (ident) @font-lock-variable-name-face)
       (accountability_lemma lemma_identifier: (ident) @font-lock-function-name-face)
+      (predicate predicate_identifier: (ident) @font-lock-function-name-face)
       (tactic (ident) @font-lock-function-name-face)
       (let let_identifier: (mset_term) @spthy-ts-mode--add-face-process-identifier))
 
