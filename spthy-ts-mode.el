@@ -399,7 +399,7 @@ applies the appropriate text property to alter their syntax class."
               "conjunction" "disjunction" "imp" "iff" "negation")))
     ;; Usually we just indent to the column of the parent, however,
     ;; if the parent is on the same line as its enclosing quantifier,
-    ;; then we shift to the left as follows.
+    ;; then we usually shift to the left as follows.
     ;; Instead of:
     ;; All a b c. A(a)
     ;;            ==> B(b, c)
@@ -424,14 +424,19 @@ applies the appropriate text property to alter their syntax class."
               (treesit-parent-until parent #'parent-quantifier-prev-line
                                     'include-node))
              (maybe-quantifier
-              (treesit-node-parent maybe-quantifier-child)))
-        (if (above-parent-line-p maybe-quantifier)
+              (treesit-node-parent maybe-quantifier-child))
+             (offset (- (treesit-node-start parent)
+                        (treesit-node-start
+                         maybe-quantifier-child))))
+        (if (or
+             ;; Do not shift to the left when the offset is large,
+             ;; as this could be confusing.
+             (>= offset 2)
+             (above-parent-line-p maybe-quantifier))
             `(,(treesit-node-start parent) . 0)
           `(,(treesit-node-start maybe-quantifier) .
             ,(+ spthy-ts-mode-indent-offset
-                (- (treesit-node-start parent)
-                   (treesit-node-start
-                    maybe-quantifier-child)))))))))
+                offset)))))))
 
 (defun spthy-ts-mode--formula-writing-indent-rule (node parent bol &rest _)
   (when (or (and (null node)
