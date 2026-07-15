@@ -148,8 +148,6 @@ applies the appropriate text property to alter their syntax class."
            "contradiction" "backward-search" "simplify"
            "induction" "rule-equivalence")
     (tactic "presort" "prio" "deprio" "smallest" "id")
-    (tactic-function "regex" "isFactName" "isInFactTerms" "dhreNoise"
-                     "defaultNoise" "reasonableNoncesNoise" "nonAbsurdConstraint")
     (preprocessor "#ifdef" "#else" "#endif" "#define" "#include")
     (quiet "modulo" "$" "~")
     (processes "out" (process_let "let") (process_let "in")
@@ -175,9 +173,6 @@ applies the appropriate text property to alter their syntax class."
     (bilinear-pairing "inv" "1" "DH_neutral" "pmult" "em")
     (xor "zero")))
 
-;; Used for semantic highlighting. A current limitation is that
-;; this only queries the current buffer, and does not collect
-;; information from included files.
 (defmacro spthy-ts-mode--throttled-query-function (query collect)
   `(let ((last-time 0)
          (last-value nil)
@@ -387,8 +382,7 @@ applies the appropriate text property to alter their syntax class."
      :feature tactic
      (,(spthy-ts-mode--tokens-add-face
         'tactic '@font-lock-preprocessor-face)
-      ,(spthy-ts-mode--tokens-add-face
-        'tactic-function '@font-lock-preprocessor-face))))
+      ((std_function (function_name) @font-lock-preprocessor-face)))))
 
 ;;; Indentation
 
@@ -401,6 +395,20 @@ applies the appropriate text property to alter their syntax class."
              parent
              (spthy-ts-mode--regexp-opt-line
               "conjunction" "disjunction" "imp" "iff" "negation")))
+    ;; Usually we just indent to the column of the parent, however,
+    ;; if the parent is on the same line as its enclosing quantifier,
+    ;; then we shift to the left as follows.
+    ;; Instead of:
+    ;; All a b c. A(a)
+    ;;            ==> B(b, c)
+    ;; We indent:
+    ;; Ex a b c. A(a)
+    ;;   ==> B(b, c)
+    ;; More precisely, we indent exactly as if the parent were
+    ;; on the line following the quantifier:
+    ;; Ex a b c.
+    ;;   A(a)
+    ;;   ==> B(b, c)
     (cl-flet* ((above-parent-line-p (nod)
                  (< (treesit-node-start nod)
                     (save-excursion
@@ -510,7 +518,7 @@ applies the appropriate text property to alter their syntax class."
   (when (spthy-ts-mode--proof-exists-p)
     (cl-flet ((proof-node-p (nod)
                 (or (member (treesit-node-type nod)
-                            '("cases" "case"))
+                            '("cases" "case" "step"))
                     (member (treesit-node-field-name nod)
                             '("proof_skeleton")))))
       (treesit-parent-until
@@ -533,7 +541,11 @@ applies the appropriate text property to alter their syntax class."
                node-at-bol
                #'spthy-ts-mode--non-comment-node-p 'start 'backward 'all)
               (treesit-node-at (point))))))
-    (unless (and prev-line
+    (unless
+        (and prev-line
+             ;; A non-nil PREV-LINE enforces that there
+             ;; should be no blank line between the last
+             ;; non-comment node and the line to indent.
              (save-excursion
                (goto-char bol)
                (cl-loop while
@@ -546,11 +558,6 @@ applies the appropriate text property to alter their syntax class."
   (lambda (_node _parent bol &rest _)
     (let ((node (spthy-ts-mode--prev-non-comment-node bol prev-line)))
       (and
-       ;; (not (and prev-line
-       ;;           ;; The parameter prev-line enforces that there
-       ;;           ;; should be no blank line between the last
-       ;;           ;; non-comment node and the line to indent.
-       ;;           ))
        (or (null node-t)
            (string-match-p
             node-t (or (treesit-node-type node) "")))
@@ -613,7 +620,6 @@ applies the appropriate text property to alter their syntax class."
 (defun spthy-ts-mode--regexp-opt-line (&rest strings)
   (concat "^" (regexp-opt (flatten-list strings)) "$"))
 
-;; TODO indent "predicates: ..."
 ;; TODO embedded restrictions
 (defvar spthy-ts-mode--indent-settings
   (cl-macrolet ((rxl (&rest args)
@@ -697,6 +703,7 @@ applies the appropriate text property to alter their syntax class."
                       "nested_process" "location_process")
                 nil)
         parent 0)
+       ;; TODO should be min of offset, parent ident length + 1? check grammar ) cases
        ((node-is "^)$")
         parent ,spthy-ts-mode-indent-offset)
        ((and (node-is "^]$")
@@ -719,6 +726,7 @@ applies the appropriate text property to alter their syntax class."
                     ,(rxl "premise" "action_fact" "conclusion")
                     nil))
         (nth-sibling 0 t) 0)
+       ;; TODO should be min of offset, grand-parent ident length + 1?
        ((n-p-gp "^mset_term$" "^arguments$" nil)
         grand-parent ,spthy-ts-mode-indent-offset)
        ((n-p-gp ,(rxl "mset_term" "term_eq" "fresh_var"
