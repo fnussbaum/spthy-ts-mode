@@ -708,6 +708,17 @@ applies the appropriate text property to alter their syntax class."
        ;; Handle cases where the parser does recover.
        spthy-ts-mode--parser-missing-node-indent-rule
 
+       ((and no-node
+             (spthy-ts-mode--prev-node-is "^,$" "^equations$" t))
+        column-0 ,spthy-ts-mode-indent-offset)
+       ((or
+         (n-p-gp "^=$" "^equation$" nil)
+         (and no-node
+              (spthy-ts-mode--prev-node-is "^=$" "^equation$" t))
+         (and (parent-is "^equation$")
+              (field-is "^right$")))
+        parent ,spthy-ts-mode-indent-offset)
+
        ((parent-is "^inline_msr_process$")
         parent 0)
        ((or (parent-is "^theory$")
