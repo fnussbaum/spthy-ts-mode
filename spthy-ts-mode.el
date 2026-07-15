@@ -143,7 +143,7 @@ applies the appropriate text property to alter their syntax class."
              "process" "lemma" "diffLemma" "all-traces" "exists-trace"
              "All" "Ex" (let ("let")) (rule_let_block "let")
              (rule_let_block "in") "fresh" "not" "test" "accounts"
-             "account" "for" "equivLemma" "diffEquivLemma")
+             "account" "for" "equivLemma" "diffEquivLemma" "_restrict")
     (proof "next" "case" "by" "ATTACK" ((solved)) ((mirrored)) "qed"
            "contradiction" "backward-search" "simplify"
            "induction" "rule-equivalence")
@@ -445,13 +445,19 @@ applies the appropriate text property to alter their syntax class."
                             (treesit-search-forward
                              prev-node
                              (lambda (nod)
-                               (treesit-node-match-p
-                                (treesit-node-parent nod) "^theory$"))
+                               (or
+                                (treesit-node-match-p nod "^embedded_restriction$")
+                                (treesit-node-match-p
+                                 (treesit-node-parent nod) "^theory$")))
                              'backward))
                            '("lemma" "restriction" "case_test"
-                             "accountability_lemma" "predicates"))))
+                             "accountability_lemma" "predicates"
+                             "embedded_restriction"))))
             (and (treesit-node-match-p node "^)$")
-                 (treesit-node-match-p parent "^nested_formula$")))
+                 (treesit-node-match-p
+                  parent
+                  (spthy-ts-mode--regexp-opt-line
+                   "nested_formula" "embedded_restriction"))))
     (or (spthy-ts-mode--indent-try-insertions '("& A()" "A()" "a. A()") bol)
         `(,(funcall (alist-get 'prev-line treesit-simple-indent-presets)
                     node parent bol)
