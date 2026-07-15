@@ -445,10 +445,19 @@ applies the appropriate text property to alter their syntax class."
                              "accountability_lemma" "predicates"))))
             (and (treesit-node-match-p node "^)$")
                  (treesit-node-match-p parent "^nested_formula$")))
-    (or (spthy-ts-mode--indent-try-insertions '("a. A()" "& A()" "A()") bol)
+    (or (spthy-ts-mode--indent-try-insertions '("& A()" "A()" "a. A()") bol)
         `(,(funcall (alist-get 'prev-line treesit-simple-indent-presets)
                     node parent bol)
           . 0))))
+
+(defun spthy-ts-mode--no-node-fallback-rule (node parent bol &rest _)
+  ;; The formula-writing-indent-rule above might not have applied due to an
+  ;; error, like a missing closing " in an incomplete formula of a lemma.
+  ;; Hence we try again here.
+  (when (and (null node)
+             (spthy-ts-mode--prev-non-comment-node bol t))
+    (spthy-ts-mode--indent-try-insertions
+     '("& A()" "A()" "a. A()") bol)))
 
 (defun spthy-ts-mode--incomplete-let-indent-rule (_node _parent bol &rest _)
   (when-let* ((node (spthy-ts-mode--prev-non-comment-node bol))
@@ -462,6 +471,7 @@ applies the appropriate text property to alter their syntax class."
     (with-temp-buffer
       (delay-mode-hooks (spthy-ts-mode))
       (insert prefix)
+      (insert "\n\nend")
       (goto-char bol)
       (let ((temp-bol (point)))
         (catch 'result
@@ -469,13 +479,34 @@ applies the appropriate text property to alter their syntax class."
             (insert str)
             (let* ((nod (treesit-node-at temp-bol))
                    (largest-nod (treesit--indent-largest-node-at temp-bol)))
-              (when (not (equal (treesit-node-type (treesit-node-parent nod))
-                                "ERROR"))
+              (when
+                  ;; When we do not introduce an error...
+                  (not (or (equal (treesit-node-type (treesit-node-parent nod))
+                                  "ERROR")
+                           ;; Error right before.
+                           (equal (treesit-node-type
+                                   (treesit-node-parent
+                                    (treesit--indent-largest-node-at
+                                     (treesit-node-start
+                                      (spthy-ts-mode--prev-non-comment-node temp-bol)))))
+                                  "ERROR")
+                           ;; Error further in the inserted candidate string.
+                           (treesit-search-forward
+                            nod
+                            (lambda (n)
+                              (and
+                               (> (treesit-node-start n) temp-bol)
+                               ;; Not the end node we inserted.
+                               (not (equal (treesit-node-end n) (point-max)))
+                               (or (equal (treesit-node-type (treesit-node-parent n))
+                                          "ERROR")
+                                   (equal (treesit-node-type n)
+                                          "ERROR")))))))
                 (throw 'result
-                        (treesit-simple-indent
-                         largest-nod
-                         (treesit-node-parent largest-nod)
-                         temp-bol))))
+                       (treesit-simple-indent
+                        largest-nod
+                        (treesit-node-parent largest-nod)
+                        temp-bol))))
             (delete-region temp-bol (point))))))))
 
 (defun spthy-ts-mode--missing-closing-bracket-indent-rule
@@ -821,6 +852,7 @@ applies the appropriate text property to alter their syntax class."
         parent 0)
        ((and no-node (parent-is "^action_fact$"))
         parent 2)
+       spthy-ts-mode--no-node-fallback-rule
        (no-node prev-line 0)
        (catch-all parent 0)))))
 
