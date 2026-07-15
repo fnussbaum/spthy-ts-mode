@@ -139,11 +139,11 @@ applies the appropriate text property to alter their syntax class."
 (defconst spthy-ts-mode--tokens
   '((general "theory" "begin" "end" "builtins" "functions" "export"
              "options" "equations" "predicates" "macros" "heuristic"
-             "tactic" "rule" "variants" "axiom" "restriction" "process"
-             "lemma" "diffLemma" "all-traces" "exists-trace" "All" "Ex"
-             (let ("let")) (rule_let_block "let") (rule_let_block "in")
-             "fresh" "not" "test" "accounts" "account" "for"
-             "equivLemma" "diffEquivLemma")
+             "options" "tactic" "rule" "variants" "axiom" "restriction"
+             "process" "lemma" "diffLemma" "all-traces" "exists-trace"
+             "All" "Ex" (let ("let")) (rule_let_block "let")
+             (rule_let_block "in") "fresh" "not" "test" "accounts"
+             "account" "for" "equivLemma" "diffEquivLemma")
     (proof "next" "case" "by" "ATTACK" ((solved)) ((mirrored)) "qed"
            "contradiction" "backward-search" "simplify"
            "induction" "rule-equivalence")
@@ -285,7 +285,7 @@ applies the appropriate text property to alter their syntax class."
 
      :language spthy
      :feature constant
-     (((pub_name) @font-lock-string-face))
+     ((pub_name) @font-lock-string-face)
 
      :language spthy
      :feature operator
@@ -312,7 +312,8 @@ applies the appropriate text property to alter their syntax class."
       ,(spthy-ts-mode--tokens-add-face
         'preprocessor '@font-lock-preprocessor-face)
       ((atom) @font-lock-keyword-face)
-      ("configuration" @font-lock-constant-face))
+      ("configuration" @font-lock-constant-face)
+      ((option) @font-lock-constant-face))
 
      :language spthy
      :feature process
