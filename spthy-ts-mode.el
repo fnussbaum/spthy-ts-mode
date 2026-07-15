@@ -580,10 +580,35 @@ applies the appropriate text property to alter their syntax class."
           (throw 'term (point)))
         (setq parent (treesit-node-parent parent))))))
 
+(defun spthy-ts-mode--else-anchor (_node parent bol &rest _)
+  (let* ((parent-bol (save-excursion
+                       (goto-char (treesit-node-start parent))
+                       (pos-bol)))
+         (gp (treesit-node-parent parent))
+         (else-node (car
+                     (treesit-filter-child
+                      gp
+                      (lambda (c) (treesit-node-match-p c "^else$")))))
+         (else-column
+          (save-excursion
+            (goto-char (treesit-node-start else-node))
+            (current-column)))
+         (gp-column
+          (save-excursion
+            (goto-char (treesit-node-start gp))
+            (current-column))))
+    (if (and
+         (<= parent-bol (treesit-node-start else-node))
+         (<= else-column gp-column))
+        (treesit-node-start else-node)
+      (treesit-node-start parent))))
+
 (defconst spthy-ts-mode--process-nodes
   '("set_lock" "remove_lock" "input" "read_state" "delete_state"
     "set_state" "output" "event" "process_let" "binding"
-    "conditional" "predefined_process" "inline_msr_process"))
+    "conditional" "predefined_process" "inline_msr_process"
+    "nested_process" "location_process" "deterministic_choice"
+    "nondeterministic_choice" "replication"))
 
 (defun spthy-ts-mode--regexp-opt-line (&rest strings)
   (concat "^" (regexp-opt (flatten-list strings)) "$"))
@@ -719,15 +744,30 @@ applies the appropriate text property to alter their syntax class."
                 nil)
         parent 0)
        ((parent-is ,(rxl "nested_process" "location_process" "replication"))
-        parent 1)
+        parent ,spthy-ts-mode-indent-offset)
        ((parent-is ,(rxl "deterministic_choice" "nondeterministic_choice"))
         parent ,spthy-ts-mode-indent-offset)
-       ((and (parent-is "^conditional$")
-             (node-is ,(rxl spthy-ts-mode--process-nodes
-                            "nested_process" "location_process")))
+
+       ;; For "else if", "else lookup", anchor to else.
+       ((and (parent-is ,(rxl "conditional" "read_state"))
+             (node-is ,(rxl spthy-ts-mode--process-nodes))
+             ,(lambda (_node parent &rest _)
+                (equal (treesit-node-field-name parent) "else")))
+        spthy-ts-mode--else-anchor ,spthy-ts-mode-indent-offset)
+       ;; Nested else.
+       ((and (parent-is ,(rxl "conditional" "read_state"))
+             (node-is "else")
+             ,(lambda (_node parent &rest _)
+                (equal (treesit-node-field-name parent) "else")))
+        spthy-ts-mode--else-anchor 0)
+       ((and (parent-is ,(rxl "conditional" "read_state"))
+             (node-is ,(rxl spthy-ts-mode--process-nodes)))
         parent ,spthy-ts-mode-indent-offset)
+
        ((node-is ,(rxl spthy-ts-mode--process-nodes))
         spthy-ts-mode--nested-or-standalone-parent 0)
+
+
        ((n-p-gp "^]$"
                 ,(rxl "premise" "conclusion")
                 nil)
