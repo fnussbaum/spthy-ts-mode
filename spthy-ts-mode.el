@@ -721,7 +721,7 @@ applies the appropriate text property to alter their syntax class."
 
        ((parent-is "^inline_msr_process$")
         parent 0)
-       ((or (parent-is "^theory$")
+       ((or (and (not no-node) (parent-is "^theory$"))
             (parent-is "^tactic$"))
         column-0 0)
        ((and (or (n-p-gp "^]->$" "^action_fact$" nil)
@@ -849,7 +849,7 @@ applies the appropriate text property to alter their syntax class."
             (parent-is "^simple_rule$")
             (n-p-gp nil nil "^tactic$")
             (parent-is "^rule_let_block$"))
-        first-sibling ,spthy-ts-mode-indent-offset)
+        (nth-sibling 0 t) 0)
        ((n-p-gp "^,$" "^action_fact$" nil)
         parent 2)
        ((and no-node (or (parent-is "^premise$")
