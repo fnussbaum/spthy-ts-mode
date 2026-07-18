@@ -415,7 +415,10 @@ applies the appropriate text property to alter their syntax class."
         'preprocessor '@font-lock-preprocessor-face)
       ((atom) @font-lock-keyword-face)
       ("configuration" @font-lock-constant-face)
-      ((option) @font-lock-constant-face))
+      ((option) @font-lock-constant-face)
+      ,(spthy-ts-mode--tokens-add-face 'proof '@font-lock-keyword-face)
+      (["step" "solve"] @font-lock-function-call-face)
+      (["sorry"] @font-lock-warning-face))
 
      :language spthy
      :feature definition
@@ -492,12 +495,6 @@ applies the appropriate text property to alter their syntax class."
                     @spthy-ts-mode--add-face-conclusion-fact))
       (conclusion ( persistent_fact fact_identifier: (ident)
                     @spthy-ts-mode--add-face-conclusion-fact)))
-
-     :language spthy
-     :feature proof-kw
-     (,(spthy-ts-mode--tokens-add-face 'proof '@font-lock-keyword-face)
-      (["step" "solve"] @font-lock-function-call-face)
-      (["sorry"] @font-lock-warning-face))
 
      :language spthy
      :feature tactic
@@ -1137,7 +1134,7 @@ applies the appropriate text property to alter their syntax class."
 
     (setq-local treesit-font-lock-feature-list
                 '(( comment constant quiet)
-                  ( keyword proof-kw)
+                  ( keyword)
                   ( tactic definition action-fact
                     reference builtin operator)
                   ( fact delimiter)))
