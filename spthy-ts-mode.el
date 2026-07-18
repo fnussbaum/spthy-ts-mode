@@ -576,28 +576,22 @@ applies the appropriate text property to alter their syntax class."
             (let* ((nod (treesit-node-at temp-bol))
                    (largest-nod (treesit--indent-largest-node-at temp-bol)))
               (when
-                  ;; When we do not introduce an error...
-                  (not (or (equal (treesit-node-type (treesit-node-parent nod))
-                                  "ERROR")
-                           ;; Error right before.
-                           (equal (treesit-node-type
-                                   (treesit-node-parent
-                                    (treesit--indent-largest-node-at
-                                     (treesit-node-start
-                                      (spthy-ts-mode--prev-non-comment-node temp-bol)))))
-                                  "ERROR")
-                           ;; Error further in the inserted candidate string.
-                           (treesit-search-forward
-                            nod
-                            (lambda (n)
-                              (and
-                               (> (treesit-node-start n) temp-bol)
-                               ;; Not the end node we inserted.
-                               (not (equal (treesit-node-end n) (point-max)))
-                               (or (equal (treesit-node-type (treesit-node-parent n))
-                                          "ERROR")
-                                   (equal (treesit-node-type n)
-                                          "ERROR")))))))
+                  (not
+                   ;; Check for errors in and right before the insertion.
+                   (let ((pos (treesit-node-start
+                               (spthy-ts-mode--prev-non-comment-node
+                                (pos-bol 2))))
+                         (prev-pos
+                          (treesit-node-start
+                           (spthy-ts-mode--prev-non-comment-node temp-bol))))
+                     (catch 'error
+                       (while (>= pos prev-pos)
+                         (when (treesit-node-check
+                                (treesit-node-parent
+                                 (treesit--indent-largest-node-at pos))
+                                'has-error)
+                           (throw 'error t))
+                         (cl-decf pos)))))
                 (throw 'result
                        (treesit-simple-indent
                         largest-nod
