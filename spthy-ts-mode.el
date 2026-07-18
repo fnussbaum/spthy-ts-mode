@@ -112,7 +112,6 @@ applies the appropriate text property to alter their syntax class."
           (node-type (treesit-node-type node))
           (parent-type (treesit-node-type (treesit-node-parent node))))
       (cond
-       ;; FIXME Try making electric pairs work (handle error nodes)
        ((and (member node-type '("<" ">"))
              (equal parent-type "tuple_term"))
         (put-text-property (match-beginning 0)
@@ -1108,6 +1107,20 @@ applies the appropriate text property to alter their syntax class."
   (funcall (spthy-ts-mode--prev-node-is "]" "^premise$")
            nil nil (- (point) 3)))
 
+(defun spthy-ts-mode--sp-tuple-p (_id _action _context)
+  (let* ((node (treesit-node-at (1- (point))))
+         (parent-type (treesit-node-type
+                       (treesit-node-parent node))))
+    (or (equal parent-type "tuple_term")
+        (and (equal parent-type "ERROR")
+             (treesit-parent-until
+              node
+              (lambda (nod)
+                (treesit-node-match-p
+                 nod (spthy-ts-mode--rxl
+                      "mset_term" "arguments"
+                      "linear_fact" "persistent_fact"))))))))
+
 (with-eval-after-load 'smartparens
   (sp-with-modes '(spthy-ts-mode)
     (sp-local-pair "--[" "]->"
@@ -1115,7 +1128,9 @@ applies the appropriate text property to alter their syntax class."
                    :post-handlers '(" || "))
     (sp-local-pair "[" "]"
                    :post-handlers
-                   '(spthy-ts-mode--sp-square-bracket-handler))))
+                   '(spthy-ts-mode--sp-square-bracket-handler))
+    (sp-local-pair "<" ">"
+                   :when '(spthy-ts-mode--sp-tuple-p))))
 
 ;;;###autoload
 (with-eval-after-load 'treesit
