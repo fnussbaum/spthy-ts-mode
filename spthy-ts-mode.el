@@ -33,6 +33,17 @@
 (require 'c-ts-common) ; for comment indentation and filling
 (eval-when-compile (require 'rx))
 
+;;;###autoload
+(with-eval-after-load 'treesit
+  (add-to-list
+   'treesit-language-source-alist
+   '(spthy "https://github.com/fnussbaum/tamarin-prover"
+           :source-dir "tree-sitter/tree-sitter-spthy/src"
+           :commit "36d47f75150a028b53ce3ae8022994dc092d1e86")
+   t)
+  (when (treesit-ready-p 'spthy)
+    (add-to-list 'auto-mode-alist '("\\.spthy\\'" . spthy-ts-mode))))
+
 (defcustom spthy-ts-indent-offset 2
   "Number of spaces for each indentation step in `spthy-ts-mode'."
   :type 'integer
@@ -1185,17 +1196,6 @@ applies the appropriate text property to alter their syntax class."
                    '(spthy-ts-mode--sp-square-bracket-handler))
     (sp-local-pair "<" ">"
                    :when '(spthy-ts-mode--sp-tuple-p))))
-
-;;;###autoload
-(with-eval-after-load 'treesit
-  (add-to-list
-   'treesit-language-source-alist
-   '(spthy "https://github.com/fnussbaum/tamarin-prover"
-           :source-dir "tree-sitter/tree-sitter-spthy/src"
-           :commit "36d47f75150a028b53ce3ae8022994dc092d1e86")
-   t)
-  (when (treesit-ready-p 'spthy)
-    (add-to-list 'auto-mode-alist '("\\.spthy\\'" . spthy-ts-mode))))
 
 (provide 'spthy-ts-mode)
 
