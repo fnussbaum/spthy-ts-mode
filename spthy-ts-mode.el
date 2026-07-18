@@ -717,18 +717,24 @@ applies the appropriate text property to alter their syntax class."
                         thereis (looking-at-p "[[:blank:]]*$"))))
       node)))
 
-(defun spthy-ts-mode--prev-node-is (node-t &optional parent-t prev-line)
+(cl-defun spthy-ts-mode--prev-node-is (node-t &key p gp prev-line)
   (lambda (_node _parent bol &rest _)
     (let ((node (spthy-ts-mode--prev-non-comment-node bol prev-line)))
       (and
        (or (null node-t)
            (string-match-p
             node-t (or (treesit-node-type node) "")))
-       (or (null parent-t)
+       (or (null p)
            (string-match-p
-            parent-t
+            p
             (treesit-node-type
-             (treesit-node-parent node))))))))
+             (treesit-node-parent node))))
+       (or (null gp)
+           (string-match-p
+            gp
+            (treesit-node-type
+             (treesit-node-parent
+              (treesit-node-parent node)))))))))
 
 (defun spthy-ts-mode--end-of-prev-node
     (_node _parent bol)
@@ -750,7 +756,7 @@ applies the appropriate text property to alter their syntax class."
           (throw 'term (point)))
         (setq parent (treesit-node-parent parent))))))
 
-(defun spthy-ts-mode--else-anchor (_node parent bol &rest _)
+(defun spthy-ts-mode--else-anchor (_node parent &rest _)
   (let* ((parent-bol (save-excursion
                        (goto-char (treesit-node-start parent))
                        (pos-bol)))
@@ -787,6 +793,7 @@ applies the appropriate text property to alter their syntax class."
 (defmacro spthy-ts-mode--rxl (&rest args)
   `(spthy-ts-mode--regexp-opt-line ,@args))
 
+;; TODO try whether evaluating, prev-node-is to inline lambda is an optimization
 (defvar spthy-ts-mode--indent-settings
   (cl-macrolet ((rxl (&rest args)
                   `(spthy-ts-mode--regexp-opt-line ,@args))
@@ -800,9 +807,10 @@ applies the appropriate text property to alter their syntax class."
        (spthy-ts-mode--within-proof-p
         no-indent)
 
-       ;; Comments.
-       ((node-is ,(rxl "multi_comment" "single_comment"))
-        no-indent)
+       ;; TODO Consider indenting comments.
+       ;;; Comments.
+       ;; ((node-is ,(rxl "multi_comment" "single_comment"))
+       ;;  no-indent)
 
        ;; Block comments (adapted from `c-ts-mode--simple-indent-rules').
        ;; `c-ts-common-looking-at-star' has to come before
@@ -832,31 +840,38 @@ applies the appropriate text property to alter their syntax class."
        ((parent-is "^formal_comment$") no-indent)
 
        ;; Incomplete definitions.
-       ((and no-node (spthy-ts-mode--prev-node-is ":" nil t))
-        parent ,spthy-ts-indent-offset)
+       ((and no-node ,(prev-node-is ":" :prev-line t))
+        parent spthy-ts-indent-offset)
        ;; Incomplete rules.
-       ((spthy-ts-mode--prev-node-is ,(rxl "[" "--[") nil t)
-        spthy-ts-mode--end-of-prev-node ,spthy-ts-indent-offset)
+       (,(prev-node-is (rxl "[" "--[") :prev-line t)
+        spthy-ts-mode--end-of-prev-node 2)
 
        spthy-ts-mode--logical-operator-indent-rule
+       ;; TODO Does process writing need improvements?
        spthy-ts-mode--formula-writing-indent-rule
 
-       ;; Some incomplete cases where the parser
+       ;; Handle missing brackets where the parser
        ;; itself does not recover with a MISSING node.
        spthy-ts-mode--missing-closing-bracket-indent-rule
        ;; Handle cases where the parser does recover.
        spthy-ts-mode--parser-missing-node-indent-rule
 
        ((and no-node
-             (spthy-ts-mode--prev-node-is "^,$" "^equations$" t))
-        column-0 ,spthy-ts-indent-offset)
+             ,(prev-node-is "^,$" :p "^equations$" :prev-line t))
+        column-0 spthy-ts-indent-offset)
+       ((or (n-p-gp "^,$" "^equations$" nil)
+            ;; To support "comma on new line" style.
+            (and no-node
+                 (prev-line-is "^equation$")))
+        column-0 ,(lambda (&rest _)
+                    (- spthy-ts-mode-indent-offset 2)))
        ((or
          (n-p-gp "^=$" "^equation$" nil)
          (and no-node
-              (spthy-ts-mode--prev-node-is "^=$" "^equation$" t))
+              ,(prev-node-is "^=$" :p "^equation$" :prev-line t))
          (and (parent-is "^equation$")
               (field-is "^right$")))
-        parent ,spthy-ts-indent-offset)
+        parent spthy-ts-indent-offset)
 
        ((parent-is "^inline_msr_process$")
         parent 0)
@@ -865,7 +880,7 @@ applies the appropriate text property to alter their syntax class."
         column-0 0)
        ((and (or (n-p-gp "^]->$" "^action_fact$" nil)
                  (n-p-gp "^]$" ,(rxl "premise" "conclusion") nil))
-             (spthy-ts-mode--prev-node-is "^,$" nil t))
+             ,(prev-node-is "^,$" :prev-line t))
         (nth-sibling 0 t) 0)
        ((n-p-gp "^]$" ,(rxl "premise" "conclusion") nil)
         parent 0)
@@ -875,21 +890,16 @@ applies the appropriate text property to alter their syntax class."
        ((or
          (n-p-gp "^<=>$" "^predicate$" nil)
          (and no-node
-              (spthy-ts-mode--prev-node-is "^<=>$" "^predicate$" t))
+              ,(prev-node-is "^<=>$" :p "^predicate$" :prev-line t))
          (and (parent-is "^predicate$")
               (field-is "^formula$")))
-        parent ,spthy-ts-indent-offset)
+        parent spthy-ts-indent-offset)
 
-       ((n-p-gp "^)$"
-                ,(rxl "nested_term" "ifdef_nested"
-                      "nested_process" "location_process")
-                nil)
-        parent 0)
-       ;; TODO should be min of offset, parent ident length + 1? check grammar ) cases
        ((node-is "^)$")
-        parent ,spthy-ts-indent-offset)
+        parent 0)
+
        ((and (node-is "^]$")
-             (spthy-ts-mode--prev-node-is "^,$"))
+             ,(prev-node-is "^,$"))
         (nth-sibling 0 t) 0)
        ((node-is
          ,(rxl "rule_attr" "function_attribute" "lemma_attr"
@@ -901,6 +911,9 @@ applies the appropriate text property to alter their syntax class."
        ((and (parent-is "^quantified_formula$")
              (node-is "^\\.$"))
         parent 0)
+
+       ((query ((tuple_term left: (mset_term) @term)))
+        parent 1)
        ((or (n-p-gp "^mset_term$"
                     ,(rxl "tuple_term")
                     nil)
@@ -908,42 +921,41 @@ applies the appropriate text property to alter their syntax class."
                     ,(rxl "premise" "action_fact" "conclusion")
                     nil))
         (nth-sibling 0 t) 0)
-       ;; TODO should be min of offset, grand-parent ident length + 1?
-       ((n-p-gp "^mset_term$" "^arguments$" nil)
-        grand-parent ,spthy-ts-indent-offset)
        ((n-p-gp ,(rxl "mset_term" "term_eq" "fresh_var"
                       "linear_fact" "persistent_fact"
                       "equality")
                 ,(rxl spthy-ts-mode--process-nodes)
                 nil)
-        parent ,spthy-ts-indent-offset)
+        parent spthy-ts-indent-offset)
        ((or (parent-is "^quantified_formula$")
             (node-is "^arguments$")
             (node-is "^macro$"))
-        parent ,spthy-ts-indent-offset)
+        parent spthy-ts-indent-offset)
        ((or (n-p-gp "\""
                     ,(rxl "lemma" "restriction" "case_test"
                           "accountability_lemma")
                     nil)
             (node-is "^trace_quantifier$"))
-        column-0 ,spthy-ts-indent-offset)
+        column-0 spthy-ts-indent-offset)
+
+       ;;; Processes.
        ((parent-is "^let$")
-        parent ,spthy-ts-indent-offset)
+        parent spthy-ts-indent-offset)
        ((n-p-gp ,(rxl "||" "|" "+")
                 ,(rxl "deterministic_choice" "nondeterministic_choice")
                 nil)
         parent 0)
        ((parent-is ,(rxl "nested_process" "location_process" "replication"))
-        parent ,spthy-ts-indent-offset)
+        parent spthy-ts-indent-offset)
        ((parent-is ,(rxl "deterministic_choice" "nondeterministic_choice"))
-        parent ,spthy-ts-indent-offset)
+        parent spthy-ts-indent-offset)
 
        ;; For "else if", "else lookup", anchor to else.
        ((and (parent-is ,(rxl "conditional" "read_state"))
              (node-is ,(rxl spthy-ts-mode--process-nodes))
              ,(lambda (_node parent &rest _)
                 (equal (treesit-node-field-name parent) "else")))
-        spthy-ts-mode--else-anchor ,spthy-ts-indent-offset)
+        spthy-ts-mode--else-anchor spthy-ts-indent-offset)
        ;; Nested else.
        ((and (parent-is ,(rxl "conditional" "read_state"))
              (node-is "else")
@@ -952,7 +964,7 @@ applies the appropriate text property to alter their syntax class."
         spthy-ts-mode--else-anchor 0)
        ((and (parent-is ,(rxl "conditional" "read_state"))
              (node-is ,(rxl spthy-ts-mode--process-nodes)))
-        parent ,spthy-ts-indent-offset)
+        parent spthy-ts-indent-offset)
 
        ((node-is ,(rxl spthy-ts-mode--process-nodes))
         spthy-ts-mode--nested-or-standalone-parent 0)
@@ -964,17 +976,21 @@ applies the appropriate text property to alter their syntax class."
         parent 0)
        ((n-p-gp "^in$" "^rule_let_block$" nil)
         parent 0)
-       ((node-is "^-->$")
-        column-0 ,(max 0 (- spthy-ts-indent-offset 1)))
-       ((or (node-is "^action_fact$")
+       ((or (node-is "^-->$")
+            (node-is "^action_fact$")
             ;; Handle incomplete rules.
-            (spthy-ts-mode--prev-node-is "^\\]$" "^premise$"))
-        column-0 ,(max 0 (- spthy-ts-indent-offset 1)))
+            ,(prev-node-is "^\\]$" :p "^premise$"))
+        column-0
+        ,(lambda (&rest _)
+           (max
+            0
+            (+ spthy-ts-indent-offset
+               spthy-ts-mode-arrow-indent-offset))))
        ((or (node-is "^premise$")
             (node-is "^conclusion$")
-            (spthy-ts-mode--prev-node-is "^\\]->$" "^action_fact$")
-            (spthy-ts-mode--prev-node-is "^-->$"))
-        column-0 ,spthy-ts-indent-offset)
+            ,(prev-node-is "^\\]->$" :p "^action_fact$")
+            ,(prev-node-is "^-->$"))
+        column-0 spthy-ts-indent-offset)
        spthy-ts-mode--incomplete-let-indent-rule
        ;; Handle first fact within rule premises and conclusions.
        ((match nil ,(rxl "premise" "conclusion")
@@ -984,6 +1000,8 @@ applies the appropriate text property to alter their syntax class."
        ((match nil "^action_fact$"
                nil 1 1)
         parent 4)
+       ;; TODO gp theory, prev-sibling is : => parent+offset,  or cover all cases
+       ;; also rule let block indent first one (like equations?)
        ((or (n-p-gp nil nil "^theory$")
             (parent-is "^simple_rule$")
             (n-p-gp nil nil "^tactic$")
@@ -993,10 +1011,10 @@ applies the appropriate text property to alter their syntax class."
         parent 2)
        ((and no-node (or (parent-is "^premise$")
                          (parent-is "^conclusion$"))
-             (spthy-ts-mode--prev-node-is "^,$" nil t))
+             ,(prev-node-is "^,$" :prev-line t))
         (nth-sibling 0 t) 0)
        ((and no-node (parent-is "^action_fact$")
-             (spthy-ts-mode--prev-node-is "^,$" nil t))
+             ,(prev-node-is "^,$" :prev-line t))
         (nth-sibling 0 t) 0)
        ((and no-node (or (parent-is "^premise$")
                          (parent-is "^conclusion$")))
@@ -1108,7 +1126,7 @@ applies the appropriate text property to alter their syntax class."
 
     (setq-local treesit-font-lock-feature-list
                 '(( comment constant quiet)
-                  ( keyword process-kw proof-kw)
+                  ( keyword proof-kw)
                   ( tactic definition action-fact
                     reference builtin operator)
                   ( fact delimiter)))
@@ -1118,9 +1136,9 @@ applies the appropriate text property to alter their syntax class."
 
 (defun spthy-ts-mode--sp-premise-or-conclusion-p ()
   (or
-   (funcall (spthy-ts-mode--prev-node-is ":" "^simple_rule$")
+   (funcall (spthy-ts-mode--prev-node-is ":" :p "^simple_rule$")
             nil nil (- (point) 1))
-   (and (funcall (spthy-ts-mode--prev-node-is ":" "^ERROR$")
+   (and (funcall (spthy-ts-mode--prev-node-is ":" :p "^ERROR$")
                  nil nil (- (point) 1))
         (treesit-node-match-p
          (treesit-node-at
@@ -1129,7 +1147,7 @@ applies the appropriate text property to alter their syntax class."
                         (spthy-ts-mode--prev-non-comment-node (- (point) 1))))
             (pos-bol)))
          "^rule$"))
-   (funcall (spthy-ts-mode--prev-node-is "]->" "^action_fact$")
+   (funcall (spthy-ts-mode--prev-node-is "]->" :p "^action_fact$")
             nil nil (- (point) 1))))
 
 (defun spthy-ts-mode--sp-square-bracket-handler (_id _action _context)
@@ -1140,7 +1158,7 @@ applies the appropriate text property to alter their syntax class."
     (indent-for-tab-command)))
 
 (defun spthy-ts-mode--sp-action-fact-p (_id _action _context)
-  (funcall (spthy-ts-mode--prev-node-is "]" "^premise$")
+  (funcall (spthy-ts-mode--prev-node-is "]" :p "^premise$")
            nil nil (- (point) 3)))
 
 (defun spthy-ts-mode--sp-tuple-p (_id _action _context)
