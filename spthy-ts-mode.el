@@ -475,11 +475,11 @@ applies the appropriate text property to alter their syntax class."
 (defun spthy-ts-mode--logical-operator-indent-rule (node parent &rest _)
   (when (or (treesit-node-match-p
              node
-             (spthy-ts-mode--regexp-opt-line
+             (spthy-ts-mode--rxl
               "&" "∧" "|" "∨" "==>" "⇒" "<=>" "⇔" "not" "¬"))
             (treesit-node-match-p
              parent
-             (spthy-ts-mode--regexp-opt-line
+             (spthy-ts-mode--rxl
               "conjunction" "disjunction" "imp" "iff" "negation")))
     ;; Usually we just indent to the column of the parent, however,
     ;; if the parent is on the same line as its enclosing quantifier,
@@ -540,7 +540,7 @@ applies the appropriate text property to alter their syntax class."
             (and (treesit-node-match-p node "^)$")
                  (treesit-node-match-p
                   parent
-                  (spthy-ts-mode--regexp-opt-line
+                  (spthy-ts-mode--rxl
                    "nested_formula" "embedded_restriction"))))
     (or (spthy-ts-mode--indent-try-insertions '("& A()" "A()" "a. A()") bol)
         `(,(funcall (alist-get 'prev-line treesit-simple-indent-presets)
@@ -707,7 +707,7 @@ applies the appropriate text property to alter their syntax class."
         (goto-char (treesit-node-start parent))
         (when (or (treesit-node-match-p
                    (treesit-node-parent parent)
-                   (spthy-ts-mode--regexp-opt-line
+                   (spthy-ts-mode--rxl
                     "nested_process" "location_process" "replication"
                     "deterministic_choice" "nondeterministic_choice"))
                   (looking-back (rx bol (* whitespace))
@@ -738,20 +738,28 @@ applies the appropriate text property to alter their syntax class."
         (treesit-node-start else-node)
       (treesit-node-start parent))))
 
-(defconst spthy-ts-mode--process-nodes
-  '("set_lock" "remove_lock" "input" "read_state" "delete_state"
-    "set_state" "output" "event" "process_let" "binding"
-    "conditional" "predefined_process" "inline_msr_process"
-    "nested_process" "location_process" "deterministic_choice"
-    "nondeterministic_choice" "replication"))
+(eval-and-compile
+  (defconst spthy-ts-mode--process-nodes
+    '("set_lock" "remove_lock" "input" "read_state" "delete_state"
+      "set_state" "output" "event" "process_let" "binding"
+      "conditional" "predefined_process" "inline_msr_process"
+      "nested_process" "location_process" "deterministic_choice"
+      "non_deterministic_choice" "replication")))
 
 (defun spthy-ts-mode--regexp-opt-line (&rest strings)
   (concat "^" (regexp-opt (flatten-list strings)) "$"))
 
-;; TODO embedded restrictions
+(defmacro spthy-ts-mode--rxl (&rest args)
+  `(spthy-ts-mode--regexp-opt-line ,@args))
+
 (defvar spthy-ts-mode--indent-settings
   (cl-macrolet ((rxl (&rest args)
-                  `(spthy-ts-mode--regexp-opt-line ,@args)))
+                  `(spthy-ts-mode--regexp-opt-line ,@args))
+                ;; (prev-node-is (&rest args)
+                ;;   `(spthy-ts-mode--prev-node-is ,@args))
+                ;; For debugging: Do not inline lambda.
+                (prev-node-is (&rest args)
+                  `(list 'spthy-ts-mode--prev-node-is ,@args)))
     `((spthy
        ;; Don't interfere with proof formatting.
        (spthy-ts-mode--within-proof-p
@@ -1005,7 +1013,7 @@ applies the appropriate text property to alter their syntax class."
   (treesit-node-match-p (treesit-node-parent node) "^theory$"))
 
 (defvar spthy-ts-mode--imenu-settings
-  `(( "Process" ,(spthy-ts-mode--regexp-opt-line
+  `(( "Process" ,(spthy-ts-mode--rxl
                   '("process" "let"))
       spthy-ts-mode--parent-is-theory-p nil)
     ( "Rule" "^rule$"
