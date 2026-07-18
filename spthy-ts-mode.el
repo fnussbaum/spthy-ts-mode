@@ -37,7 +37,32 @@
   "Number of spaces for each indentation step in `spthy-ts-mode'."
   :type 'integer
   :safe 'integerp
-  :group 'spthy)
+  :group 'spthy-ts)
+
+(defcustom spthy-ts-mode-arrow-indent-offset -1
+  "Indentation offset of --[]-> and --> in `spthy-ts-mode'.
+The value, an integer, is relative to the indentation
+of premises and conclusions.
+
+When -1, the default, we indent like this:
+rule Rule:
+  []
+ --[]->
+  []
+
+When -2, for example, the square brackets are aligned:
+rule Rule:
+  []
+--[]->
+  []
+"
+  :type 'integer
+  :safe 'integerp)
+
+(defcustom spthy-ts-mode-formula-indent-style 'parent
+  "Indentation style for formulas in `spthy-ts-mode'."
+  :type '(choice (const parent) (const compact) (const manual)))
+
 (defface spthy-ts-process-keyword-face
   '((t (:inherit font-lock-keyword-face)))
   "Face used for SAPIC+ keywords in spthy files."
@@ -480,46 +505,55 @@ applies the appropriate text property to alter their syntax class."
              parent
              (spthy-ts-mode--rxl
               "conjunction" "disjunction" "imp" "iff" "negation")))
-    ;; Usually we just indent to the column of the parent, however,
-    ;; if the parent is on the same line as its enclosing quantifier,
-    ;; then we usually shift to the left as follows.
-    ;; Instead of:
-    ;; All a b c. A(a)
-    ;;            ==> B(b, c)
-    ;; We indent:
-    ;; Ex a b c. A(a)
-    ;;   ==> B(b, c)
-    ;; More precisely, we indent exactly as if the parent were
-    ;; on the line following the quantifier:
-    ;; Ex a b c.
-    ;;   A(a)
-    ;;   ==> B(b, c)
-    (cl-flet* ((above-parent-line-p (nod)
-                 (< (treesit-node-start nod)
-                    (save-excursion
-                      (goto-char (treesit-node-start parent))
-                      (pos-bol))))
-               (parent-quantifier-prev-line (nod)
-                 (let ((nod-parent (treesit-node-parent nod)))
-                   (or (equal (treesit-node-type nod-parent) "quantified_formula")
-                       (above-parent-line-p nod-parent)))))
-      (let* ((maybe-quantifier-child
-              (treesit-parent-until parent #'parent-quantifier-prev-line
-                                    'include-node))
-             (maybe-quantifier
-              (treesit-node-parent maybe-quantifier-child))
-             (offset (- (treesit-node-start parent)
-                        (treesit-node-start
-                         maybe-quantifier-child))))
-        (if (or
-             ;; Do not shift to the left when the offset is large,
-             ;; as this could be confusing.
-             (>= offset 2)
-             (above-parent-line-p maybe-quantifier))
-            `(,(treesit-node-start parent) . 0)
-          `(,(treesit-node-start maybe-quantifier) .
-            ,(+ spthy-ts-indent-offset
-                offset)))))))
+    (pcase spthy-ts-mode-formula-indent-style
+      ('manual
+        '(no-indent))
+      ('parent
+        `(,(treesit-node-start parent) . 0))
+      ('compact
+        ;; Compact indentation style:
+        ;; Usually we just indent to the column of the parent, however,
+        ;; if the parent is on the same line as its enclosing quantifier,
+        ;; then we usually shift to the left as follows.
+        ;; Instead of:
+        ;; All a b c. A(a)
+        ;;            ==> B(b, c)
+        ;; We indent:
+        ;; All a b c. A(a)
+        ;;   ==> B(b, c)
+        ;; More precisely, we indent exactly as if the parent were
+        ;; on the line following the quantifier:
+        ;; All a b c.
+        ;;   A(a)
+        ;;   ==> B(b, c)
+        (cl-flet* ((above-parent-line-p (nod)
+                     (< (treesit-node-start nod)
+                        (save-excursion
+                          (goto-char (treesit-node-start parent))
+                          (pos-bol))))
+                   (parent-quantifier-prev-line (nod)
+                     (let ((nod-parent (treesit-node-parent nod)))
+                       (or (equal (treesit-node-type nod-parent)
+                                  "quantified_formula")
+                           (above-parent-line-p nod-parent)))))
+          (let* ((maybe-quantifier-child
+                  (treesit-parent-until parent #'parent-quantifier-prev-line
+                                        'include-node))
+                 (maybe-quantifier
+                  (treesit-node-parent maybe-quantifier-child))
+                 (offset (- (treesit-node-start parent)
+                            (treesit-node-start
+                             maybe-quantifier-child))))
+            (if (or
+                 (above-parent-line-p maybe-quantifier)
+                 ;; Do not shift to the left when the offset is large,
+                 ;; as this could be confusing.
+                 (>= offset 2))
+                `(,(treesit-node-start parent) . 0)
+              ;; Else shift.
+              `(,(treesit-node-start maybe-quantifier) .
+                ,(+ spthy-ts-indent-offset
+                    offset)))))))))
 
 (defun spthy-ts-mode--formula-writing-indent-rule (node parent bol &rest _)
   (when (or (and (null node)
@@ -534,17 +568,22 @@ applies the appropriate text property to alter their syntax class."
                                  (treesit-node-parent nod) "^theory$")))
                              'backward))
                            '("lemma" "restriction" "case_test"
-                             "accountability_lemma" "predicates"
+                             "accountability_lemma" "predicate"
                              "embedded_restriction"))))
             (and (treesit-node-match-p node "^)$")
                  (treesit-node-match-p
                   parent
                   (spthy-ts-mode--rxl
                    "nested_formula" "embedded_restriction"))))
-    (or (spthy-ts-mode--indent-try-insertions '("& A()" "A()" "a. A()") bol)
-        `(,(funcall (alist-get 'prev-line treesit-simple-indent-presets)
-                    node parent bol)
-          . 0))))
+    (or
+     (let ((spthy-ts-mode-formula-indent-style
+            (if (eq spthy-ts-mode-formula-indent-style 'manual)
+                'parent
+              spthy-ts-mode-formula-indent-style)))
+       (spthy-ts-mode--indent-try-insertions '("| A()" "A()" "a. A()") bol))
+     `(,(funcall (alist-get 'prev-line treesit-simple-indent-presets)
+                 node parent bol)
+       . 0))))
 
 (defun spthy-ts-mode--no-node-fallback-rule (node parent bol &rest _)
   ;; The formula-writing-indent-rule above might not have applied due to an
@@ -552,8 +591,11 @@ applies the appropriate text property to alter their syntax class."
   ;; Hence we try again here.
   (when (and (null node)
              (spthy-ts-mode--prev-non-comment-node bol t))
-    (spthy-ts-mode--indent-try-insertions
-     '("& A()" "A()" "a. A()") bol)))
+    (let ((spthy-ts-mode-formula-indent-style
+           (if (eq spthy-ts-mode-formula-indent-style 'manual)
+               'parent
+             spthy-ts-mode-formula-indent-style)))
+      (spthy-ts-mode--indent-try-insertions '("| A()" "A()" "a. A()") bol))))
 
 (defun spthy-ts-mode--incomplete-let-indent-rule (_node _parent bol &rest _)
   (when-let* ((node (spthy-ts-mode--prev-non-comment-node bol))
