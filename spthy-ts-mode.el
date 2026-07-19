@@ -3,7 +3,7 @@
 ;; Copyright (C) 2026 Ferdinand Nussbaum
 
 ;; Author: Ferdinand Nussbaum <ferdinand.nussbaum@inf.ethz.ch>
-;; Version: 0
+;; Version: 0.1.0
 ;; Package-Requires: ((emacs "29.1"))
 ;; Keywords: tamarin spthy languages tree-sitter
 ;; URL: https://www.github.com/fnussbaum/spthy-ts-mode
@@ -25,6 +25,9 @@
 
 ;;; Commentary:
 ;;
+;; A major mode for editing the security protocol theory language (spthy) of the
+;; Tamarin prover (https://tamarin-prover.com), based on its tree-sitter
+;; grammar.
 
 ;;; Code:
 
@@ -211,6 +214,13 @@ applies the appropriate text property to alter their syntax class."
     (bilinear-pairing "inv" "1" "DH_neutral" "pmult" "em")
     (xor "zero")))
 
+(defun spthy-ts-mode--regexp-opt-line (&rest strings)
+  (concat "^" (regexp-opt (flatten-list strings)) "$"))
+
+(defmacro spthy-ts-mode--rxl (&rest args)
+  `(spthy-ts-mode--regexp-opt-line ,@args))
+
+;; TODO might need to fontify
 (defmacro spthy-ts-mode--throttled-query-function (query collect)
   `(let ((last-time 0)
          (last-value nil)
@@ -245,6 +255,20 @@ applies the appropriate text property to alter their syntax class."
                     thereis
                     (and (member (treesit-node-text node) idents)
                          (member (symbol-name theory) imported-theories)))))
+      (add-face-text-property
+       node-start node-end 'font-lock-builtin-face))))
+
+(defconst spthy-ts-mode--builtin-facts
+  '("In" "Out" "Fr" "K" "KU" "KD"))
+
+(defun spthy-ts-mode--add-face-builtin-fact
+    (node _override start end &rest _)
+  (let ((node-start (treesit-node-start node))
+        (node-end (treesit-node-end node)))
+    (when
+        (and
+         (<= start node-start node-end end)
+         (member (treesit-node-text node) spthy-ts-mode--builtin-facts))
       (add-face-text-property
        node-start node-end 'font-lock-builtin-face))))
 
@@ -325,48 +349,12 @@ applies the appropriate text property to alter their syntax class."
               'font-lock-function-call-face)
              ((or 'function 'macro)
               'font-lock-function-call-face)))
-        (when (equal '(fact) definition-types)
+        (when (and (equal '(fact) definition-types)
+                   (not (member (treesit-node-text node)
+                                spthy-ts-mode--builtin-facts)))
           (add-face-text-property
            node-start node-end
            'font-lock-comment-face))))))
-
-(defconst spthy-ts-mode--builtin-facts
-  '("In" "Out" "Fr"))
-
-(defconst spthy-ts-mode--builtin-action-constraints
-  '("K" "KU" "KD"))
-
-(defun spthy-ts-mode--fact-font-lock-enabled ()
-  (cl-loop for setting in treesit-font-lock-settings
-           thereis (and (eq (treesit-font-lock-setting-feature setting) 'fact)
-                        (treesit-font-lock-setting-enable setting))))
-
-;; The distinction between variable-use, variable-name faces might not
-;; make too much sense.
-(cl-loop
- for (name builtin-face other-face builtin-list)
- in '((spthy-ts-mode--add-face-action-constraint
-       font-lock-builtin-face font-lock-property-use-face
-       spthy-ts-mode--builtin-action-constraints)
-      (spthy-ts-mode--add-face-premise-fact
-       font-lock-builtin-face font-lock-variable-use-face
-       spthy-ts-mode--builtin-facts)
-      (spthy-ts-mode--add-face-conclusion-fact
-       font-lock-builtin-face font-lock-variable-name-face
-       spthy-ts-mode--builtin-facts))
- do
- (eval `(defun ,name (node _override start end &rest _)
-          (let ((node-start (treesit-node-start node))
-                (node-end (treesit-node-end node)))
-            (when (<= start node-start node-end end)
-              (add-face-text-property
-               node-start node-end
-               (cond
-                ((member (treesit-node-text node) ,builtin-list)
-                 ',builtin-face)
-                ;; TODO can this be removed?
-                ((spthy-ts-mode--fact-font-lock-enabled)
-                 ',other-face))))))))
 
 (defun spthy-ts-mode--tokens-add-face (type face)
   (apply
@@ -484,17 +472,17 @@ applies the appropriate text property to alter their syntax class."
                               @spthy-ts-mode--add-face-builtin-function)
       ((built_in) @font-lock-builtin-face)
       (action_constraint ( linear_fact fact_identifier: (ident)
-                           @spthy-ts-mode--add-face-action-constraint))
+                           @spthy-ts-mode--add-face-builtin-fact))
       (action_constraint ( persistent_fact fact_identifier: (ident)
-                           @spthy-ts-mode--add-face-action-constraint))
+                           @spthy-ts-mode--add-face-builtin-fact))
       (premise ( linear_fact fact_identifier: (ident)
-                 @spthy-ts-mode--add-face-premise-fact))
+                 @spthy-ts-mode--add-face-builtin-fact))
       (premise ( persistent_fact fact_identifier: (ident)
-                 @spthy-ts-mode--add-face-premise-fact))
+                 @spthy-ts-mode--add-face-builtin-fact))
       (conclusion ( linear_fact fact_identifier: (ident)
-                    @spthy-ts-mode--add-face-conclusion-fact))
+                    @spthy-ts-mode--add-face-builtin-fact))
       (conclusion ( persistent_fact fact_identifier: (ident)
-                    @spthy-ts-mode--add-face-conclusion-fact)))
+                    @spthy-ts-mode--add-face-builtin-fact)))
 
      :language spthy
      :feature tactic
@@ -602,7 +590,7 @@ applies the appropriate text property to alter their syntax class."
                  node parent bol)
        . 0))))
 
-(defun spthy-ts-mode--no-node-fallback-rule (node parent bol &rest _)
+(defun spthy-ts-mode--no-node-fallback-rule (node _parent bol &rest _)
   ;; The formula-writing-indent-rule above might not have applied due to an
   ;; error, like a missing closing " in an incomplete formula of a lemma.
   ;; Hence we try again here.
@@ -639,8 +627,7 @@ applies the appropriate text property to alter their syntax class."
         (catch 'result
           (dolist (str candidates)
             (insert str)
-            (let* ((nod (treesit-node-at temp-bol))
-                   (largest-nod (treesit--indent-largest-node-at temp-bol)))
+            (let* ((largest-nod (treesit--indent-largest-node-at temp-bol)))
               (when
                   (not
                    ;; Check for errors in and right before the insertion.
@@ -831,27 +818,20 @@ applies the appropriate text property to alter their syntax class."
     '("built_ins" "functions" "equations"
       "predicates" "macros" "options")))
 
-(defun spthy-ts-mode--regexp-opt-line (&rest strings)
-  (concat "^" (regexp-opt (flatten-list strings)) "$"))
-
-(defmacro spthy-ts-mode--rxl (&rest args)
-  `(spthy-ts-mode--regexp-opt-line ,@args))
-
-;; TODO try whether evaluating, prev-node-is to inline lambda is an optimization
 (defvar spthy-ts-mode--indent-settings
   (cl-macrolet ((rxl (&rest args)
                   `(spthy-ts-mode--regexp-opt-line ,@args))
-                ;; (prev-node-is (&rest args)
-                ;;   `(spthy-ts-mode--prev-node-is ,@args))
-                ;; For debugging: Do not inline lambda.
                 (prev-node-is (&rest args)
-                  `(list 'spthy-ts-mode--prev-node-is ,@args)))
+                  `(spthy-ts-mode--prev-node-is ,@args))
+                ;; For debugging: Do not inline lambda.
+                ;; (prev-node-is (&rest args)
+                ;;   `(list 'spthy-ts-mode--prev-node-is ,@args))
+                )
     `((spthy
        ;; Don't interfere with proof formatting.
        (spthy-ts-mode--within-proof-p
         no-indent)
 
-       ;; TODO Consider indenting comments.
        ;;; Comments.
        ;; ((node-is ,(rxl "multi_comment" "single_comment"))
        ;;  no-indent)
