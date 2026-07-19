@@ -565,19 +565,28 @@ applies the appropriate text property to alter their syntax class."
 
 (defun spthy-ts-mode--formula-writing-indent-rule (node parent bol &rest _)
   (when (or (and (null node)
-                 (and-let* ((prev-node (spthy-ts-mode--prev-non-comment-node bol t)))
-                   (member (treesit-node-type
-                            (treesit-search-forward
-                             prev-node
-                             (lambda (nod)
-                               (or
-                                (treesit-node-match-p nod "^embedded_restriction$")
-                                (treesit-node-match-p
-                                 (treesit-node-parent nod) "^theory$")))
-                             'backward))
-                           '("lemma" "restriction" "case_test"
-                             "accountability_lemma" "predicate"
-                             "embedded_restriction"))))
+                 (and-let* ((prev-node (spthy-ts-mode--prev-non-comment-node bol t))
+                            ((not (treesit-node-match-p prev-node "^,$")))
+                            (target-node
+                             (treesit-search-forward
+                              prev-node
+                              (lambda (nod)
+                                (or
+                                 (treesit-node-match-p nod "^embedded_restriction$")
+                                 (treesit-node-match-p
+                                  (treesit-node-parent nod)
+                                  (spthy-ts-mode--rxl "theory" "predicate"))))
+                              'backward)))
+                   (or (treesit-node-match-p
+                        target-node
+                        (spthy-ts-mode--rxl
+                         "lemma" "restriction" "case_test"
+                         "accountability_lemma" "embedded_restriction"))
+                       (and (treesit-node-match-p
+                             (treesit-node-parent target-node) "^predicate$")
+                            (equal
+                             (treesit-node-field-name target-node)
+                             "formula")))))
             (and (treesit-node-match-p node "^)$")
                  (treesit-node-match-p
                   parent
@@ -613,9 +622,16 @@ applies the appropriate text property to alter their syntax class."
     `(,let-pos . ,spthy-ts-indent-offset)))
 
 (defun spthy-ts-mode--indent-try-insertions (candidates bol)
-  (let ((prefix (buffer-substring-no-properties (point-min) bol)))
+  (let ((prefix (buffer-substring-no-properties (point-min) bol))
+        ;; The buffer-local values could differ from the default.
+        (formula-indent-style spthy-ts-mode-formula-indent-style)
+        (indent-offset spthy-ts-indent-offset)
+        (arrow-indent-offset spthy-ts-mode-arrow-indent-offset))
     (with-temp-buffer
       (delay-mode-hooks (spthy-ts-mode))
+      (setq-local spthy-ts-mode-formula-indent-style formula-indent-style)
+      (setq-local spthy-ts-indent-offset indent-offset)
+      (setq-local spthy-ts-mode-arrow-indent-offset arrow-indent-offset)
       (insert prefix)
       (insert "\n\nend")
       (goto-char bol)
@@ -725,9 +741,11 @@ applies the appropriate text property to alter their syntax class."
                         thereis (looking-at-p "[[:blank:]]*$"))))
       node)))
 
-(cl-defun spthy-ts-mode--prev-node-is (node-t &key p gp prev-line)
+(cl-defun spthy-ts-mode--prev-node-is (node-t &key p gp prev-line bolp)
   (lambda (_node _parent bol &rest _)
-    (let ((node (spthy-ts-mode--prev-non-comment-node bol prev-line)))
+    (let ((node (if bolp
+                    (treesit--indent-prev-line-node bol)
+                  (spthy-ts-mode--prev-non-comment-node bol prev-line))))
       (and
        (or (null node-t)
            (string-match-p
@@ -735,14 +753,16 @@ applies the appropriate text property to alter their syntax class."
        (or (null p)
            (string-match-p
             p
-            (treesit-node-type
-             (treesit-node-parent node))))
+            (or (treesit-node-type
+                 (treesit-node-parent node))
+                "")))
        (or (null gp)
            (string-match-p
             gp
-            (treesit-node-type
-             (treesit-node-parent
-              (treesit-node-parent node)))))))))
+            (or (treesit-node-type
+                 (treesit-node-parent
+                  (treesit-node-parent node)))
+                "")))))))
 
 (defun spthy-ts-mode--end-of-prev-node
     (_node _parent bol)
@@ -787,13 +807,29 @@ applies the appropriate text property to alter their syntax class."
         (treesit-node-start else-node)
       (treesit-node-start parent))))
 
+(defun spthy-ts-mode--matching-bracket-start (node parent &rest _)
+  (let ((matching-bracket
+         (pcase (treesit-node-type node)
+           (")" "^($")
+           ("}" "^{$")
+           ("]" "^\\[$"))))
+    (treesit-node-start
+     (or (progn
+           (while (and node (not (treesit-node-match-p node matching-bracket)))
+             (setq node (treesit-node-prev-sibling node)))
+           node)
+         parent))))
+
 (eval-and-compile
   (defconst spthy-ts-mode--process-nodes
     '("set_lock" "remove_lock" "input" "read_state" "delete_state"
       "set_state" "output" "event" "process_let" "binding"
       "conditional" "predefined_process" "inline_msr_process"
       "nested_process" "location_process" "deterministic_choice"
-      "non_deterministic_choice" "replication")))
+      "non_deterministic_choice" "replication"))
+  (defconst spthy-ts-mode--signature-spec-nodes
+    '("built_ins" "functions" "equations"
+      "predicates" "macros" "options")))
 
 (defun spthy-ts-mode--regexp-opt-line (&rest strings)
   (concat "^" (regexp-opt (flatten-list strings)) "$"))
@@ -847,97 +883,25 @@ applies the appropriate text property to alter their syntax class."
         prev-line 0)
        ((parent-is "^formal_comment$") no-indent)
 
-       ;; Incomplete definitions.
+
+       ;;; Incomplete definitions.
        ((and no-node ,(prev-node-is ":" :prev-line t))
         parent spthy-ts-indent-offset)
        ;; Incomplete rules.
        (,(prev-node-is (rxl "[" "--[") :prev-line t)
         spthy-ts-mode--end-of-prev-node 2)
 
+
+       ;;; Formulas.
        spthy-ts-mode--logical-operator-indent-rule
-       ;; TODO Does process writing need improvements?
        spthy-ts-mode--formula-writing-indent-rule
-
-       ;; Handle missing brackets where the parser
-       ;; itself does not recover with a MISSING node.
-       spthy-ts-mode--missing-closing-bracket-indent-rule
-       ;; Handle cases where the parser does recover.
-       spthy-ts-mode--parser-missing-node-indent-rule
-
-       ((and no-node
-             ,(prev-node-is "^,$" :p "^equations$" :prev-line t))
-        column-0 spthy-ts-indent-offset)
-       ((or (n-p-gp "^,$" "^equations$" nil)
-            ;; To support "comma on new line" style.
-            (and no-node
-                 (prev-line-is "^equation$")))
-        column-0 ,(lambda (&rest _)
-                    (- spthy-ts-mode-indent-offset 2)))
-       ((or
-         (n-p-gp "^=$" "^equation$" nil)
-         (and no-node
-              ,(prev-node-is "^=$" :p "^equation$" :prev-line t))
-         (and (parent-is "^equation$")
-              (field-is "^right$")))
-        parent spthy-ts-indent-offset)
-
-       ((parent-is "^inline_msr_process$")
-        parent 0)
-       ((or (and (not no-node) (parent-is "^theory$"))
-            (parent-is "^tactic$"))
-        column-0 0)
-       ((and (or (n-p-gp "^]->$" "^action_fact$" nil)
-                 (n-p-gp "^]$" ,(rxl "premise" "conclusion") nil))
-             ,(prev-node-is "^,$" :prev-line t))
-        (nth-sibling 0 t) 0)
-       ((n-p-gp "^]$" ,(rxl "premise" "conclusion") nil)
-        parent 0)
-       ((n-p-gp "^]->$" "^action_fact$" nil)
-        parent 2)
-
-       ((or
-         (n-p-gp "^<=>$" "^predicate$" nil)
-         (and no-node
-              ,(prev-node-is "^<=>$" :p "^predicate$" :prev-line t))
-         (and (parent-is "^predicate$")
-              (field-is "^formula$")))
-        parent spthy-ts-indent-offset)
-
-       ((node-is "^)$")
-        parent 0)
-
-       ((and (node-is "^]$")
-             ,(prev-node-is "^,$"))
-        (nth-sibling 0 t) 0)
-       ((node-is
-         ,(rxl "rule_attr" "function_attribute" "lemma_attr"
-               "diff_lemma_attr" "restriction_attr" "language"))
-        (nth-sibling 0 t) 0)
        ((and (parent-is "^quantified_formula$")
              (field-is "^variable$"))
         (nth-sibling 1) 0)
        ((and (parent-is "^quantified_formula$")
              (node-is "^\\.$"))
         parent 0)
-
-       ((query ((tuple_term left: (mset_term) @term)))
-        parent 1)
-       ((or (n-p-gp "^mset_term$"
-                    ,(rxl "tuple_term")
-                    nil)
-            (n-p-gp ,(rxl "linear_fact" "persistent_fact")
-                    ,(rxl "premise" "action_fact" "conclusion")
-                    nil))
-        (nth-sibling 0 t) 0)
-       ((n-p-gp ,(rxl "mset_term" "term_eq" "fresh_var"
-                      "linear_fact" "persistent_fact"
-                      "equality")
-                ,(rxl spthy-ts-mode--process-nodes)
-                nil)
-        parent spthy-ts-indent-offset)
-       ((or (parent-is "^quantified_formula$")
-            (node-is "^arguments$")
-            (node-is "^macro$"))
+       ((parent-is "^quantified_formula$")
         parent spthy-ts-indent-offset)
        ((or (n-p-gp "\""
                     ,(rxl "lemma" "restriction" "case_test"
@@ -946,7 +910,77 @@ applies the appropriate text property to alter their syntax class."
             (node-is "^trace_quantifier$"))
         column-0 spthy-ts-indent-offset)
 
+
+       ;;; Signature specifications: builtins, functions, equations,
+       ;;; predicates, macros, options
+       ((and no-node
+             ,(prev-node-is
+               "^,$"
+               :p (rxl spthy-ts-mode--signature-spec-nodes)
+               :prev-line t))
+        column-0 spthy-ts-indent-offset)
+       ((or (n-p-gp "^,$" ,(rxl spthy-ts-mode--signature-spec-nodes) nil)
+            ;; To support "comma on new line" style.
+            (and no-node
+                 ,(prev-node-is
+                   nil
+                   :p (rxl spthy-ts-mode--signature-spec-nodes)
+                   :bolp t)))
+        column-0 ,(lambda (&rest _)
+                    (- spthy-ts-indent-offset 2)))
+       ((parent-is ,(rxl spthy-ts-mode--signature-spec-nodes))
+        parent spthy-ts-indent-offset)
+       ;; Equations.
+       ((or
+         (n-p-gp "^=$" "^equation$" nil)
+         (and no-node
+              ,(prev-node-is "^=$" :p "^equation$" :prev-line t))
+         (and (parent-is "^equation$")
+              (field-is "^right$")))
+        parent spthy-ts-indent-offset)
+       ;; Predicates.
+       ((or
+         (n-p-gp "^<=>$" "^predicate$" nil)
+         (and no-node
+              ,(prev-node-is "^<=>$" :p "^predicate$" :prev-line t))
+         (and (parent-is "^predicate$")
+              (field-is "^formula$")))
+        parent spthy-ts-indent-offset)
+
+
+       ;; Handle missing brackets where the parser
+       ;; itself does not recover with a MISSING node.
+       spthy-ts-mode--missing-closing-bracket-indent-rule
+       ;; Handle cases where the parser does recover.
+       spthy-ts-mode--parser-missing-node-indent-rule
+
+
+       ;;; Top-level.
+       ((and (not no-node) (parent-is "^theory$"))
+        column-0 0)
+
+
+       ;;; Tactics.
+       ((and no-node ,(prev-node-is nil :p (rxl "prio" "deprio") :prev-line t :bolp t))
+        prev-line 0)
+       ((parent-is "^tactic$")
+        column-0 0)
+       (,(prev-node-is (rxl "prio" "deprio") :prev-line t :bolp t)
+        column-0 spthy-ts-indent-offset)
+       ((n-p-gp nil nil "^tactic$")
+        prev-sibling 0)
+
+
+       ((node-is ,(rxl ")" "}"))
+        spthy-ts-mode--matching-bracket-start 0)
+
+
+       ;; TODO Does process writing need improvements?
        ;;; Processes.
+       ;; The inline_msr_process rule has to come before
+       ;; the rule rules below.
+       ((parent-is "^inline_msr_process$")
+        parent 0)
        ((parent-is "^let$")
         parent spthy-ts-indent-offset)
        ((n-p-gp ,(rxl "||" "|" "+")
@@ -974,10 +1008,25 @@ applies the appropriate text property to alter their syntax class."
              (node-is ,(rxl spthy-ts-mode--process-nodes)))
         parent spthy-ts-indent-offset)
 
+       ((n-p-gp ,(rxl "mset_term" "term_eq" "fresh_var"
+                      "linear_fact" "persistent_fact"
+                      "equality")
+                ,(rxl spthy-ts-mode--process-nodes)
+                nil)
+        parent spthy-ts-indent-offset)
        ((node-is ,(rxl spthy-ts-mode--process-nodes))
         spthy-ts-mode--nested-or-standalone-parent 0)
 
 
+       ;;; Rules.
+       ((and (or (n-p-gp "^]->$" "^action_fact$" nil)
+                 (n-p-gp "^]$" ,(rxl "premise" "conclusion") nil))
+             ,(prev-node-is "^,$" :prev-line t))
+        (nth-sibling 0 t) 0)
+       ((n-p-gp "^]$" ,(rxl "premise" "conclusion") nil)
+        parent 0)
+       ((n-p-gp "^]->$" "^action_fact$" nil)
+        parent 2)
        ((n-p-gp "^]$"
                 ,(rxl "premise" "conclusion")
                 nil)
@@ -1000,6 +1049,8 @@ applies the appropriate text property to alter their syntax class."
             ,(prev-node-is "^-->$"))
         column-0 spthy-ts-indent-offset)
        spthy-ts-mode--incomplete-let-indent-rule
+       ((parent-is "^rule_let_block$")
+        (nth-sibling 0 t) 0)
        ;; Handle first fact within rule premises and conclusions.
        ((match nil ,(rxl "premise" "conclusion")
                nil 1 1)
@@ -1008,15 +1059,34 @@ applies the appropriate text property to alter their syntax class."
        ((match nil "^action_fact$"
                nil 1 1)
         parent 4)
-       ;; TODO gp theory, prev-sibling is : => parent+offset,  or cover all cases
-       ;; also rule let block indent first one (like equations?)
-       ((or (n-p-gp nil nil "^theory$")
-            (parent-is "^simple_rule$")
-            (n-p-gp nil nil "^tactic$")
-            (parent-is "^rule_let_block$"))
-        (nth-sibling 0 t) 0)
        ((n-p-gp "^,$" "^action_fact$" nil)
         parent 2)
+
+
+       ;;; Misc
+       ((and (node-is "^\\]$")
+             ,(prev-node-is "^,$"))
+        (nth-sibling 0 t) 0)
+       ((node-is "^]$")
+        spthy-ts-mode--matching-bracket-start 0)
+       ((node-is
+         ,(rxl "rule_attr" "function_attribute" "lemma_attr"
+               "diff_lemma_attr" "restriction_attr" "language"))
+        (nth-sibling 0 t) 0)
+       ((query ((tuple_term left: (mset_term) @term)))
+        parent 1)
+       ((or (n-p-gp "^mset_term$"
+                    ,(rxl "tuple_term")
+                    nil)
+            (n-p-gp ,(rxl "linear_fact" "persistent_fact")
+                    ,(rxl "premise" "action_fact" "conclusion")
+                    nil))
+        (nth-sibling 0 t) 0)
+       ((node-is "^arguments$")
+        parent spthy-ts-indent-offset)
+
+
+       ;;; Some empty line and fallback cases.
        ((and no-node (or (parent-is "^premise$")
                          (parent-is "^conclusion$"))
              ,(prev-node-is "^,$" :prev-line t))
