@@ -1192,57 +1192,8 @@ applies the appropriate text property to alter their syntax class."
     (treesit-major-mode-setup)
     (treesit-inspect-mode)))
 
-(defun spthy-ts-mode--sp-premise-or-conclusion-p ()
-  (or
-   (funcall (spthy-ts-mode--prev-node-is ":" :p "^simple_rule$")
-            nil nil (- (point) 1))
-   (and (funcall (spthy-ts-mode--prev-node-is ":" :p "^ERROR$")
-                 nil nil (- (point) 1))
-        (treesit-node-match-p
-         (treesit-node-at
-          (save-excursion
-            (goto-char (treesit-node-start
-                        (spthy-ts-mode--prev-non-comment-node (- (point) 1))))
-            (pos-bol)))
-         "^rule$"))
-   (funcall (spthy-ts-mode--prev-node-is "]->" :p "^action_fact$")
-            nil nil (- (point) 1))))
-
-(defun spthy-ts-mode--sp-square-bracket-handler (_id _action _context)
-  (when (spthy-ts-mode--sp-premise-or-conclusion-p)
-    (insert " ")
-    (save-excursion
-      (insert " "))
-    (indent-for-tab-command)))
-
-(defun spthy-ts-mode--sp-action-fact-p (_id _action _context)
-  (funcall (spthy-ts-mode--prev-node-is "]" :p "^premise$")
-           nil nil (- (point) 3)))
-
-(defun spthy-ts-mode--sp-tuple-p (_id _action _context)
-  (let* ((node (treesit-node-at (1- (point))))
-         (parent-type (treesit-node-type
-                       (treesit-node-parent node))))
-    (or (equal parent-type "tuple_term")
-        (and (equal parent-type "ERROR")
-             (treesit-parent-until
-              node
-              (lambda (nod)
-                (treesit-node-match-p
-                 nod (spthy-ts-mode--rxl
-                      "mset_term" "arguments"
-                      "linear_fact" "persistent_fact"))))))))
-
 (with-eval-after-load 'smartparens
-  (sp-with-modes '(spthy-ts-mode)
-    (sp-local-pair "--[" "]->"
-                   :when '(spthy-ts-mode--sp-action-fact-p)
-                   :post-handlers '(" || "))
-    (sp-local-pair "[" "]"
-                   :post-handlers
-                   '(spthy-ts-mode--sp-square-bracket-handler))
-    (sp-local-pair "<" ">"
-                   :when '(spthy-ts-mode--sp-tuple-p))))
+  (require 'smartparens-spthy nil 'noerror))
 
 (provide 'spthy-ts-mode)
 
