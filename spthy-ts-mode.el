@@ -42,7 +42,7 @@
    'treesit-language-source-alist
    '(spthy "https://github.com/fnussbaum/tamarin-prover"
            :source-dir "tree-sitter/tree-sitter-spthy/src"
-           :commit "a01c26e2296e395341f28ea5b6b66ad2b98e2c34")
+           :commit "599809bc1aa66e6d363df0c38eaa3e60a5547620")
    t)
   (when (treesit-ready-p 'spthy)
     (add-to-list 'auto-mode-alist '("\\.spthy\\'" . spthy-ts-mode))))
