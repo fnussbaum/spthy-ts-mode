@@ -276,8 +276,8 @@ applies the appropriate text property to alter their syntax class."
   (spthy-ts-mode--throttled-query-function
    (treesit-query-compile
     'spthy '((let (mset_term) @process)
-             (action_fact (linear_fact) @action-fact)
-             (event (linear_fact) @action-fact)
+             (action_fact (linear_fact fact_identifier: (ident) @action-fact))
+             (event (linear_fact fact_identifier: (ident) @action-fact))
              (restriction restriction_identifier: (ident) @restriction)
              (predicate predicate_identifier: (ident) @predicate)
              (function_untyped function_identifier: (ident) @function)
@@ -298,11 +298,8 @@ applies the appropriate text property to alter their syntax class."
     (when
         (and (<= start ident-start ident-end end)
              (or (treesit-node-match-p (treesit-node-parent node) "^let$")
-                 (cl-member-if
-                  (pcase-lambda (`(,capture-name . ,id))
-                    (and (equal capture-name 'process)
-                         (equal id (treesit-node-text ident))))
-                  (spthy-ts-mode--global-definitions))))
+                 (member `(process . ,(treesit-node-text ident))
+                         (spthy-ts-mode--global-definitions))))
       (add-face-text-property
        ident-start ident-end 'font-lock-variable-name-face))))
 
@@ -330,14 +327,11 @@ applies the appropriate text property to alter their syntax class."
            (t '(fact)))))
     (when (<= start node-start node-end end)
       (if-let*
-          ((type (caar
-                  (cl-member-if
-                   (pcase-lambda (`(,capture-name . ,id))
-                     (and (member
-                           capture-name
-                           definition-types)
-                          (equal id (treesit-node-text node))))
-                   (spthy-ts-mode--global-definitions)))))
+          ((type (catch 'res
+                   (dolist (ty definition-types)
+                     (when (member `(,ty . ,(treesit-node-text node))
+                                   (spthy-ts-mode--global-definitions))
+                       (throw 'res ty))))))
           (add-face-text-property
            node-start node-end
            (pcase type
@@ -670,14 +664,15 @@ applies the appropriate text property to alter their syntax class."
     (node _parent bol &rest _)
   (when-let* ((_ (null node))
               (missing-node
-               (cdar
+               (car
                 (let ((pos (treesit-node-end
                             (spthy-ts-mode--prev-non-comment-node bol))))
                   (cl-member-if
-                   (pcase-lambda (`(,_ . ,nod))
+                   (lambda (nod)
                      (equal (treesit-node-start nod) pos))
                    (treesit-query-capture
-                    'spthy spthy-ts-mode--missing-query))))))
+                    'spthy spthy-ts-mode--missing-query
+                    nil nil 'node-only))))))
     (spthy-ts-mode--indent-try-insertions
      (list (treesit-node-type missing-node)) bol)))
 
@@ -866,7 +861,7 @@ applies the appropriate text property to alter their syntax class."
 
        ;;; Incomplete definitions.
        ((and no-node ,(prev-node-is ":" :prev-line t))
-        parent spthy-ts-indent-offset)
+        column-0 spthy-ts-indent-offset)
        ;; Incomplete rules.
        (,(prev-node-is (rxl "[" "--[") :prev-line t)
         spthy-ts-mode--end-of-prev-node 2)
