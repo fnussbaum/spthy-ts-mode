@@ -1,4 +1,4 @@
-;;; smartparens-spthy.el --- Additional configuration for spthy-ts-mode.  -*- lexical-binding: t; -*-
+;;; smartparens-spthy.el --- Additional configuration for spthy-ts-mode.  -*- lexical-binding: t; no-byte-compile: t -*-
 
 ;; Copyright (C) 2026 Ferdinand Nussbaum
 

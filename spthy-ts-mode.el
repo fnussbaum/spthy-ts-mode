@@ -71,11 +71,13 @@ rule Rule:
   []
 "
   :type 'integer
-  :safe 'integerp)
+  :safe 'integerp
+  :group 'spthy-ts)
 
 (defcustom spthy-ts-mode-formula-indent-style 'parent
   "Indentation style for formulas in `spthy-ts-mode'."
-  :type '(choice (const parent) (const compact) (const manual)))
+  :type '(choice (const parent) (const compact) (const manual))
+  :group 'spthy-ts)
 
 (defface spthy-ts-process-keyword-face
   '((t (:inherit font-lock-keyword-face)))
@@ -214,8 +216,9 @@ applies the appropriate text property to alter their syntax class."
     (bilinear-pairing "inv" "1" "DH_neutral" "pmult" "em")
     (xor "zero")))
 
-(defun spthy-ts-mode--regexp-opt-line (&rest strings)
-  (concat "^" (regexp-opt (flatten-list strings)) "$"))
+(eval-and-compile
+  (defun spthy-ts-mode--regexp-opt-line (&rest strings)
+    (concat "^" (regexp-opt (flatten-list strings)) "$")))
 
 (defmacro spthy-ts-mode--rxl (&rest args)
   (apply #'spthy-ts-mode--regexp-opt-line args))
