@@ -28,6 +28,7 @@
 
 ;;; Code:
 (require 'smartparens)
+(require 'spthy-ts-mode)
 
 (defun sp-spthy-premise-or-conclusion-p ()
   (or

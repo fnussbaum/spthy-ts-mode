@@ -1192,9 +1192,6 @@ applies the appropriate text property to alter their syntax class."
     (treesit-major-mode-setup)
     (treesit-inspect-mode)))
 
-(with-eval-after-load 'smartparens
-  (require 'smartparens-spthy nil 'noerror))
-
 (provide 'spthy-ts-mode)
 
 ;;; spthy-ts-mode.el ends here
