@@ -218,7 +218,7 @@ applies the appropriate text property to alter their syntax class."
   (concat "^" (regexp-opt (flatten-list strings)) "$"))
 
 (defmacro spthy-ts-mode--rxl (&rest args)
-  `(spthy-ts-mode--regexp-opt-line ,@args))
+  (apply #'spthy-ts-mode--regexp-opt-line args))
 
 ;; TODO might need to fontify
 (defmacro spthy-ts-mode--throttled-query-function (query collect)
@@ -1124,8 +1124,7 @@ applies the appropriate text property to alter their syntax class."
   (treesit-node-match-p (treesit-node-parent node) "^theory$"))
 
 (defvar spthy-ts-mode--imenu-settings
-  `(( "Process" ,(spthy-ts-mode--rxl
-                  '("process" "let"))
+  `(( "Process" ,(spthy-ts-mode--rxl "process" "let")
       spthy-ts-mode--parent-is-theory-p nil)
     ( "Rule" "^rule$"
       spthy-ts-mode--parent-is-theory-p nil)
