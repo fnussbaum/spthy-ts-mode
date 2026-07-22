@@ -207,12 +207,10 @@ applies the appropriate text property to alter their syntax class."
                (input "in") (read_state "in")
                "new" "lookup" "lock" "unlock" "delete" "insert"
                "event" "as" "if" "then" "else")
-    (brackets "(" ")" "<" ">")
     ;; The "not" operator is highlighted like a keyword.
     (operators "&" "∧" "|" "∨" "==>" "⇒" "<=>" "⇔" "¬"
                "||" (replication "!") (non_deterministic_choice "+")
-               "--[" "]->" "-->")
-    (delimiters "," ":" "@"))
+               "--[" "]->" "-->"))
    "Tamarin spthy tokens for tree-sitter font-locking.")
 
 (eval-and-compile
@@ -305,7 +303,7 @@ applies the appropriate text property to alter their syntax class."
      :feature comment
      (([(multi_comment) (single_comment)] @font-lock-comment-face)
       ( formal_comment comment_identifier: (ident) @font-lock-constant-face
-        (:match ,(regexp-opt '("section" "subsection" "text") 'symbols)
+        (:match ,(spthy-ts-mode--rxl "section" "subsection" "text")
                 @font-lock-constant-face)))
 
      :language spthy
@@ -929,10 +927,6 @@ applies the appropriate text property to alter their syntax class."
         parent 0)
        ((n-p-gp "^]->$" "^action_fact$" nil)
         parent 2)
-       ((n-p-gp "^]$"
-                ,(rxl "premise" "conclusion")
-                nil)
-        parent 0)
        ((n-p-gp "^in$" "^rule_let_block$" nil)
         parent 0)
        ((or (node-is "^-->$")
@@ -1107,7 +1101,7 @@ applies the appropriate text property to alter their syntax class."
                 '(( comment constant quiet)
                   ( keyword)
                   ( action-fact reference builtin-fact
-                    operator)
+                    operator tactic)
                   ( definition function)))
 
     (treesit-major-mode-setup)))
