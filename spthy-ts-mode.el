@@ -255,7 +255,6 @@ applies the appropriate text property to alter their syntax class."
   (spthy-ts-mode--throttled-query-function
    (treesit-query-compile
     'spthy '((let (mset_term) @process)
-             (restriction restriction_identifier: (ident) @restriction)
              (predicate predicate_identifier: (ident) @predicate)))
    (cons
     capture-name
@@ -280,12 +279,7 @@ applies the appropriate text property to alter their syntax class."
   (let* ((node-start (treesit-node-start node))
          (node-end (treesit-node-end node)))
     (when (and (<= start node-start node-end end)
-               (member (cons (if (treesit-node-match-p
-                                  (treesit-node-parent node)
-                                  "predicate_ref")
-                                 'predicate
-                               'restriction)
-                             (treesit-node-text node))
+               (member (cons 'predicate (treesit-node-text node))
                        (spthy-ts-mode--global-definitions)))
       (add-face-text-property
        node-start node-end
@@ -374,17 +368,13 @@ applies the appropriate text property to alter their syntax class."
      :language spthy
      :feature reference
      :override t
-     (;; Restriction references. These are syntactically indistinguishable
-      ;; from action facts, hence we look up the definitions.
-      (action_fact ( linear_fact fact_identifier: (ident)
-                     @spthy-ts-mode--add-face-reference))
-      ;; Predicate references. It might be annoying to always highlight action
+     (;; Predicate references. It might be annoying to always highlight action
       ;; facts as predicates before adding the @t annotation when writing lemmas.
       ;; Hence we look up the definitions and only highlight defined predicates.
       (predicate_ref predicate_identifier: (ident)
                      @spthy-ts-mode--add-face-reference)
       (predicate predicate_identifier: (ident) @font-lock-function-name-face)
-      ;; Process references. Why not?
+      ;; Process references.
       (predefined_process (mset_term) @spthy-ts-mode--add-face-process-identifier))
 
      :language spthy
