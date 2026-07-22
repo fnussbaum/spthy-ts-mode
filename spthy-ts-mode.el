@@ -84,6 +84,16 @@ rule Rule:
   "Face used for SAPIC+ keywords in spthy files."
   :group 'spthy-ts)
 
+(defface spthy-ts-action-fact-face
+  '((t (:inherit font-lock-property-name-face)))
+  "Face used for action facts in spthy files."
+  :group 'spthy-ts)
+
+(defface spthy-ts-action-constraint-face
+  '((t (:inherit font-lock-property-use-face)))
+  "Face used for action facts within formulas in spthy files."
+  :group 'spthy-ts)
+
 ;; Adapted from `c-ts-mode-toggle-comment-style'.
 (defun spthy-ts-mode-toggle-comment-style (&optional arg)
   "Toggle the comment style between block and line comments.
@@ -198,23 +208,12 @@ applies the appropriate text property to alter their syntax class."
                "new" "lookup" "lock" "unlock" "delete" "insert"
                "event" "as" "if" "then" "else")
     (brackets "(" ")" "<" ">")
-    (rule-delimiters "--[" "]->" "[" "]" "-->")
     ;; The "not" operator is highlighted like a keyword.
     (operators "&" "∧" "|" "∨" "==>" "⇒" "<=>" "⇔" "¬"
-               "||" (replication "!") (non_deterministic_choice "+"))
+               "||" (replication "!") (non_deterministic_choice "+")
+               "--[" "]->" "-->")
     (delimiters "," ":" "@"))
    "Tamarin spthy tokens for tree-sitter font-locking.")
-
-(defconst spthy-ts-mode--builtin-functions
-  '((hashing "h")
-    (asymmetric-encryption "adec" "aenc" "pk")
-    (signing "sign" "verify" "pk" "true")
-    (revealing-signing "revealSign" "revealVerify" "getMessage" "pk" "true")
-    (symmetric-encryption "senc" "sdec")
-    ;; also includes "^" and "*" operators
-    (diffie-hellman "inv" "1" "DH_neutral")
-    (bilinear-pairing "inv" "1" "DH_neutral" "pmult" "em")
-    (xor "zero")))
 
 (eval-and-compile
   (defun spthy-ts-mode--regexp-opt-line (&rest strings)
@@ -223,7 +222,20 @@ applies the appropriate text property to alter their syntax class."
 (defmacro spthy-ts-mode--rxl (&rest args)
   (apply #'spthy-ts-mode--regexp-opt-line args))
 
-;; TODO might need to fontify
+(defconst spthy-ts-mode--builtin-facts
+  '("In" "Out" "Fr" "K" "KU" "KD"))
+
+(defun spthy-ts-mode--add-face-builtin-fact
+    (node _override start end &rest _)
+  (let ((node-start (treesit-node-start node))
+        (node-end (treesit-node-end node)))
+    (when
+        (and
+         (<= start node-start node-end end)
+         (member (treesit-node-text node) spthy-ts-mode--builtin-facts))
+      (add-face-text-property
+       node-start node-end 'font-lock-builtin-face))))
+
 (defmacro spthy-ts-mode--throttled-query-function (query collect)
   `(let ((last-time 0)
          (last-value nil)
@@ -241,53 +253,12 @@ applies the appropriate text property to alter their syntax class."
                collect ,collect))
            last-value)))))
 
-(defalias 'spthy-ts-mode--imported-theories
-  (spthy-ts-mode--throttled-query-function
-   (treesit-query-compile 'spthy '((built_in) @builtin))
-   (treesit-node-type (treesit-node-child node 0))))
-
-(defun spthy-ts-mode--add-face-builtin-function
-    (node _override start end &rest _)
-  (let ((node-start (treesit-node-start node))
-        (node-end (treesit-node-end node)))
-    (when
-        (and
-         (<= start node-start node-end end)
-         (let ((imported-theories (spthy-ts-mode--imported-theories)))
-           (cl-loop for (theory . idents) in spthy-ts-mode--builtin-functions
-                    thereis
-                    (and (member (treesit-node-text node) idents)
-                         (member (symbol-name theory) imported-theories)))))
-      (add-face-text-property
-       node-start node-end 'font-lock-builtin-face))))
-
-(defconst spthy-ts-mode--builtin-facts
-  '("In" "Out" "Fr" "K" "KU" "KD"))
-
-(defun spthy-ts-mode--add-face-builtin-fact
-    (node _override start end &rest _)
-  (let ((node-start (treesit-node-start node))
-        (node-end (treesit-node-end node)))
-    (when
-        (and
-         (<= start node-start node-end end)
-         (member (treesit-node-text node) spthy-ts-mode--builtin-facts))
-      (add-face-text-property
-       node-start node-end 'font-lock-builtin-face))))
-
 (defalias 'spthy-ts-mode--global-definitions
   (spthy-ts-mode--throttled-query-function
    (treesit-query-compile
     'spthy '((let (mset_term) @process)
-             (action_fact (linear_fact fact_identifier: (ident) @action-fact))
-             (event (linear_fact fact_identifier: (ident) @action-fact))
              (restriction restriction_identifier: (ident) @restriction)
-             (predicate predicate_identifier: (ident) @predicate)
-             (function_untyped function_identifier: (ident) @function)
-             (function_typed function_identifier: (ident) @function)
-             (macro macro_identifier: (ident) @macro)
-             (conclusion (linear_fact fact_identifier: (ident) @fact))
-             (conclusion (persistent_fact fact_identifier: (ident) @fact))))
+             (predicate predicate_identifier: (ident) @predicate)))
    (cons
     capture-name
     (treesit-node-text
@@ -306,52 +277,21 @@ applies the appropriate text property to alter their syntax class."
       (add-face-text-property
        ident-start ident-end 'font-lock-variable-name-face))))
 
-;; TODO nullary functions should get constant face
 (defun spthy-ts-mode--add-face-reference
     (node _override start end &rest _)
   (let* ((node-start (treesit-node-start node))
-         (node-end (treesit-node-end node))
-         (parent (treesit-node-parent node))
-         (definition-types
-          (cond
-           ((treesit-node-match-p (treesit-node-parent parent)
-                                  "^action_constraint$")
-            '(action-fact))
-           ((treesit-node-match-p parent "^predicate_ref$")
-            '(predicate))
-           ((treesit-node-match-p
-             parent (spthy-ts-mode--rxl
-                     "nary_app" "binary_app"
-                     "nullary_fun" "msg_var_or_nullary_fun"))
-            '(function macro))
-           ((treesit-node-match-p
-             (treesit-node-parent parent) "^action_fact$")
-            '(restriction))
-           (t '(fact)))))
-    (when (<= start node-start node-end end)
-      (if-let*
-          ((type (catch 'res
-                   (dolist (ty definition-types)
-                     (when (member `(,ty . ,(treesit-node-text node))
-                                   (spthy-ts-mode--global-definitions))
-                       (throw 'res ty))))))
-          (add-face-text-property
-           node-start node-end
-           (pcase type
-             ('action-fact
-              'font-lock-property-use-face)
-             ('predicate
-              'font-lock-function-call-face)
-             ('restriction
-              'font-lock-function-call-face)
-             ((or 'function 'macro)
-              'font-lock-function-call-face)))
-        (when (and (equal '(fact) definition-types)
-                   (not (member (treesit-node-text node)
-                                spthy-ts-mode--builtin-facts)))
-          (add-face-text-property
-           node-start node-end
-           'font-lock-comment-face))))))
+         (node-end (treesit-node-end node)))
+    (when (and (<= start node-start node-end end)
+               (member (cons (if (treesit-node-match-p
+                                  (treesit-node-parent node)
+                                  "predicate_ref")
+                                 'predicate
+                               'restriction)
+                             (treesit-node-text node))
+                       (spthy-ts-mode--global-definitions)))
+      (add-face-text-property
+       node-start node-end
+       'font-lock-function-call-face))))
 
 (defun spthy-ts-mode--tokens-add-face (type face)
   (apply
@@ -375,9 +315,7 @@ applies the appropriate text property to alter their syntax class."
      :language spthy
      :feature operator
      (,(spthy-ts-mode--tokens-add-face
-        'operators '@font-lock-operator-face)
-      ,(spthy-ts-mode--tokens-add-face
-        'rule-delimiters '@font-lock-delimiter-face))
+        'operators '@font-lock-operator-face))
 
      ;; Inspired by `spthy-mode'.
      :language spthy
@@ -400,7 +338,8 @@ applies the appropriate text property to alter their syntax class."
         'preprocessor '@font-lock-preprocessor-face)
       ((atom) @font-lock-keyword-face)
       ("configuration" @font-lock-constant-face)
-      ((option) @font-lock-constant-face)
+      ((option) @font-lock-builtin-face)
+      ((built_in) @font-lock-builtin-face)
       ,(spthy-ts-mode--tokens-add-face 'proof '@font-lock-keyword-face)
       (["step" "solve"] @font-lock-function-call-face)
       (["sorry"] @font-lock-warning-face))
@@ -413,62 +352,47 @@ applies the appropriate text property to alter their syntax class."
       (diff_lemma lemma_identifier: (ident) @font-lock-function-name-face)
       (case_test test_identifier: (ident) @font-lock-variable-name-face)
       (accountability_lemma lemma_identifier: (ident) @font-lock-function-name-face)
-      (predicate predicate_identifier: (ident) @font-lock-function-name-face)
       (tactic (ident) @font-lock-function-name-face)
       (let let_identifier: (mset_term) @spthy-ts-mode--add-face-process-identifier))
 
      :language spthy
+     :feature function
+     ((nary_app function_identifier: (ident)
+                @font-lock-function-call-face)
+      (binary_app function_identifier: (ident)
+                  @font-lock-function-call-face))
+
+     :language spthy
      :feature action-fact
      ((action_fact ( linear_fact fact_identifier: (ident)
-                     @font-lock-property-name-face))
+                     @spthy-ts-action-fact-face))
       (action_fact ( persistent_fact fact_identifier: (ident)
-                     @font-lock-property-name-face))
+                     @spthy-ts-action-fact-face))
       (event ( linear_fact fact_identifier: (ident)
-               @font-lock-property-name-face)))
+               @spthy-ts-action-fact-face))
+      (action_constraint ( linear_fact fact_identifier: (ident)
+                           @spthy-ts-action-constraint-face)))
 
      :language spthy
      :feature reference
      :override t
-     ;; Action fact references within formulas.
-     ((action_constraint ( linear_fact fact_identifier: (ident)
-                           @spthy-ts-mode--add-face-reference))
-     ;; Action fact references within rule premises.
-      (premise ( linear_fact fact_identifier: (ident)
-                 @spthy-ts-mode--add-face-reference))
-      (premise ( persistent_fact fact_identifier: (ident)
-                 @spthy-ts-mode--add-face-reference))
-      ;; Predicate references.
-      (predicate_ref predicate_identifier: (ident)
-                     @spthy-ts-mode--add-face-reference)
-      ;; Restriction references.
+     (;; Restriction references. These are syntactically indistinguishable
+      ;; from action facts, hence we look up the definitions.
       (action_fact ( linear_fact fact_identifier: (ident)
                      @spthy-ts-mode--add-face-reference))
-      (nary_app function_identifier: (ident)
-                @spthy-ts-mode--add-face-reference)
-      (binary_app function_identifier: (ident)
-                  @spthy-ts-mode--add-face-reference)
-      (nullary_fun function_identifier: (ident)
-                   @spthy-ts-mode--add-face-reference)
-      ;; Could a nullary function potentially get shadowed
-      ;; by a variable of the same name?
-      ;; But then again, why would one choose a conflicting name...
-      (msg_var_or_nullary_fun variable_identifier: (ident)
-                              @spthy-ts-mode--add-face-reference)
+      ;; Predicate references. It might be annoying to always highlight action
+      ;; facts as predicates before adding the @t annotation when writing lemmas.
+      ;; Hence we look up the definitions and only highlight defined predicates.
+      (predicate_ref predicate_identifier: (ident)
+                     @spthy-ts-mode--add-face-reference)
+      (predicate predicate_identifier: (ident) @font-lock-function-name-face)
+      ;; Process references. Why not?
       (predefined_process (mset_term) @spthy-ts-mode--add-face-process-identifier))
 
      :language spthy
-     :feature builtin
+     :feature builtin-fact
      :override t
-     ((nary_app function_identifier: (ident)
-                 @spthy-ts-mode--add-face-builtin-function)
-      (binary_app function_identifier: (ident)
-                @spthy-ts-mode--add-face-builtin-function)
-      (nullary_fun function_identifier: (ident)
-                   @spthy-ts-mode--add-face-builtin-function)
-      (msg_var_or_nullary_fun variable_identifier: (ident)
-                              @spthy-ts-mode--add-face-builtin-function)
-      ((built_in) @font-lock-builtin-face)
-      (action_constraint ( linear_fact fact_identifier: (ident)
+     ((action_constraint ( linear_fact fact_identifier: (ident)
                            @spthy-ts-mode--add-face-builtin-fact))
       (action_constraint ( persistent_fact fact_identifier: (ident)
                            @spthy-ts-mode--add-face-builtin-fact))
@@ -1182,12 +1106,11 @@ applies the appropriate text property to alter their syntax class."
     (setq-local treesit-font-lock-feature-list
                 '(( comment constant quiet)
                   ( keyword)
-                  ( tactic definition action-fact
-                    reference builtin operator)
-                  ( fact delimiter)))
+                  ( action-fact reference builtin-fact
+                    operator)
+                  ( definition function)))
 
-    (treesit-major-mode-setup)
-    (treesit-inspect-mode)))
+    (treesit-major-mode-setup)))
 
 (provide 'spthy-ts-mode)
 
