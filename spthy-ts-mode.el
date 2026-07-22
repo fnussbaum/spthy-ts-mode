@@ -793,6 +793,8 @@ applies the appropriate text property to alter their syntax class."
         parent 0)
        ((parent-is "^quantified_formula$")
         parent spthy-ts-indent-offset)
+       ((field-is "^formula$")
+        parent spthy-ts-indent-offset)
        ((or (n-p-gp "\""
                     ,(rxl "lemma" "restriction" "case_test"
                           "accountability_lemma")
@@ -917,6 +919,8 @@ applies the appropriate text property to alter their syntax class."
         parent 0)
        ((n-p-gp "^]->$" "^action_fact$" nil)
         parent 2)
+       ((node-is "^rule_let_block$")
+        column-0 spthy-ts-indent-offset)
        ((n-p-gp "^in$" "^rule_let_block$" nil)
         parent 0)
        ((or (node-is "^-->$")
