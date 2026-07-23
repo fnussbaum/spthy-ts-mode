@@ -12,7 +12,7 @@ Note that this package requires Emacs 31.0.90 or later compiled with tree-sitter
 For example, with =use-package= and =package-vc=:
 #+begin_src elisp
 (use-package spthy-ts-mode
-  :vc (spthy-ts-mode :url "https://github.com/fnussbaum/spthy-ts-mode"))
+  :vc (:rev :newest :url "https://github.com/fnussbaum/spthy-ts-mode"))
 #+end_src
 
 When using Spacemacs, instead add the following to =dotspacemacs-additional-packages=:
