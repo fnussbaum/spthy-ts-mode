@@ -402,14 +402,18 @@ applies the appropriate text property to alter their syntax class."
 ;;; Indentation
 
 (defun spthy-ts-mode--logical-operator-indent-rule (node parent &rest _)
-  (when (or (treesit-node-match-p
-             node
-             (spthy-ts-mode--rxl
-              "&" "∧" "|" "∨" "==>" "⇒" "<=>" "⇔" "not" "¬"))
-            (treesit-node-match-p
-             parent
-             (spthy-ts-mode--rxl
-              "conjunction" "disjunction" "imp" "iff" "negation")))
+  (when (or
+         ;; We cannot use `treesit-node-match-p' here because it assumes
+         ;; single-byte characters (see fast_c_string_match_internal). For
+         ;; example, "∨" would match "(".
+         (string-match-p
+          (spthy-ts-mode--rxl
+           "&" "∧" "|" "∨" "==>" "⇒" "<=>" "⇔" "not" "¬")
+          (treesit-node-type node))
+         (treesit-node-match-p
+          parent
+          (spthy-ts-mode--rxl
+           "conjunction" "disjunction" "imp" "iff" "negation")))
     (pcase spthy-ts-mode-formula-indent-style
       ('manual
         '(no-indent))
