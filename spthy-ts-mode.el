@@ -292,7 +292,7 @@ applies the appropriate text property to alter their syntax class."
     (lambda (token) (append (ensure-list token) (list face)))
     (alist-get type spthy-ts-mode--tokens))))
 
-(defvar spthy-ts-mode--font-lock-rules
+(defvar spthy-ts-mode--font-lock-settings
   `( :language spthy
      :feature comment
      (([(multi_comment) (single_comment)] @font-lock-comment-face)
@@ -728,7 +728,7 @@ applies the appropriate text property to alter their syntax class."
     '("built_ins" "functions" "equations"
       "predicates" "macros" "options")))
 
-(defvar spthy-ts-mode--indent-settings
+(defvar spthy-ts-mode--indent-rules
   (cl-macrolet ((rxl (&rest args)
                   `(spthy-ts-mode--regexp-opt-line ,@args))
                 (prev-node-is (&rest args)
@@ -1073,10 +1073,10 @@ applies the appropriate text property to alter their syntax class."
 
     (setq-local treesit-font-lock-settings
                 (apply #'treesit-font-lock-rules
-                       spthy-ts-mode--font-lock-rules))
+                       spthy-ts-mode--font-lock-settings))
     (setq-local syntax-propertize-function #'spthy-ts-mode--syntax-propertize)
 
-    (setq-local treesit-simple-indent-rules spthy-ts-mode--indent-settings)
+    (setq-local treesit-simple-indent-rules spthy-ts-mode--indent-rules)
 
     (setq-local treesit-defun-name-function #'spthy-ts-mode--defun-name)
     (setq-local treesit-defun-tactic 'top-level)
