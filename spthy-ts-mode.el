@@ -235,21 +235,23 @@ applies the appropriate text property to alter their syntax class."
        node-start node-end 'font-lock-builtin-face))))
 
 (defmacro spthy-ts-mode--throttled-query-function (query collect)
-  `(let ((last-time 0)
-         (last-value nil)
-         (query ,query))
-     (lambda ()
-       (let ((current-time (time-convert (current-time) 'integer)))
-         (if (> current-time
-                (+ last-time 2))
-             (setq
-              last-time current-time
-              last-value
-              (cl-loop
-               for (capture-name . node) in
-               (treesit-query-capture 'spthy query)
-               collect ,collect))
-           last-value)))))
+  (let ((last-time (gensym "last-time"))
+        (last-value (gensym "last-value")))
+    `(let ((query ,query))
+       (defvar-local ,last-time 0)
+       (defvar-local ,last-value nil)
+       (lambda ()
+         (let ((current-time (time-convert (current-time) 'integer)))
+           (if (> current-time
+                  (+ ,last-time 2))
+               (setq
+                ,last-time current-time
+                ,last-value
+                (cl-loop
+                 for (capture-name . node) in
+                 (treesit-query-capture 'spthy query)
+                 collect ,collect))
+             ,last-value))))))
 
 (defalias 'spthy-ts-mode--global-definitions
   (spthy-ts-mode--throttled-query-function
