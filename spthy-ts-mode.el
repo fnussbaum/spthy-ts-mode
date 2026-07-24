@@ -571,7 +571,7 @@ applies the appropriate text property to alter their syntax class."
                                  (treesit--indent-largest-node-at pos))
                                 'has-error)
                            (throw 'error t))
-                         (cl-decf pos)))))
+                         (decf pos)))))
                 (throw 'result
                        (treesit-simple-indent
                         largest-nod
@@ -600,7 +600,7 @@ applies the appropriate text property to alter their syntax class."
                (car
                 (let ((pos (treesit-node-end
                             (spthy-ts-mode--prev-non-comment-node bol))))
-                  (cl-member-if
+                  (member-if
                    (lambda (nod)
                      (equal (treesit-node-start nod) pos))
                    (treesit-query-capture
