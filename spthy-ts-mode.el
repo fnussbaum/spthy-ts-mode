@@ -194,7 +194,7 @@ applies the appropriate text property to alter their syntax class."
              "options" "equations" "predicates" "macros" "heuristic"
              "options" "tactic" "rule" "variants" "axiom" "restriction"
              "process" "lemma" "diffLemma" "all-traces" "exists-trace"
-             "All" "Ex" (let ("let")) (rule_let_block "let")
+             "All" "Ex" (let "let") (rule_let_block "let")
              (rule_let_block "in") "fresh" "not" "test" "accounts"
              "account" "for" "equivLemma" "diffEquivLemma" "_restrict")
     (proof "next" "case" "by" "ATTACK" ((solved)) ((mirrored)) "qed"
