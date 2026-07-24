@@ -375,7 +375,8 @@ applies the appropriate text property to alter their syntax class."
                      @spthy-ts-mode--add-face-reference)
       (predicate predicate_identifier: (ident) @font-lock-function-name-face)
       ;; Process references.
-      (predefined_process (mset_term) @spthy-ts-mode--add-face-process-identifier))
+      (predefined_process (mset_term) @spthy-ts-mode--add-face-process-identifier)
+      (let let_identifier: (mset_term) @spthy-ts-mode--add-face-process-identifier))
 
      :language spthy
      :feature builtin-fact
