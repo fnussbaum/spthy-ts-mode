@@ -421,7 +421,7 @@ applies the appropriate text property to alter their syntax class."
          (string-match-p
           (spthy-ts-mode--rxl
            "&" "∧" "|" "∨" "==>" "⇒" "<=>" "⇔" "not" "¬")
-          (treesit-node-type node))
+          (or (treesit-node-type node) ""))
          (treesit-node-match-p
           parent
           (spthy-ts-mode--rxl
