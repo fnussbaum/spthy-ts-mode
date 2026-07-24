@@ -288,11 +288,19 @@ applies the appropriate text property to alter their syntax class."
        'font-lock-function-call-face))))
 
 (defun spthy-ts-mode--tokens-add-face (type face)
-  (apply
-   #'vector
+  (cons
+   ;; For tokens defined as strings, build a vector and append the face.
+   (list
+    (apply
+     #'vector
+     (cl-remove-if #'consp (alist-get type spthy-ts-mode--tokens)))
+    face)
+   ;; For tokens defined as lists, append the face to each one.
    (mapcar
-    (lambda (token) (append (ensure-list token) (list face)))
-    (alist-get type spthy-ts-mode--tokens))))
+    (lambda (token) (append token (list face)))
+    (cl-remove-if-not
+     #'consp
+     (alist-get type spthy-ts-mode--tokens)))))
 
 (defvar spthy-ts-mode--font-lock-settings
   `( :language spthy
@@ -308,13 +316,13 @@ applies the appropriate text property to alter their syntax class."
 
      :language spthy
      :feature operator
-     (,(spthy-ts-mode--tokens-add-face
+     (,@(spthy-ts-mode--tokens-add-face
         'operators '@font-lock-operator-face))
 
      ;; Inspired by `spthy-mode'.
      :language spthy
      :feature quiet
-     (,(spthy-ts-mode--tokens-add-face 'quiet '@font-lock-comment-face)
+     (,@(spthy-ts-mode--tokens-add-face 'quiet '@font-lock-comment-face)
       (pub_var ["pub" ":"] @font-lock-comment-face)
       (fresh_var ["fresh" ":"] @font-lock-comment-face)
       (msg_var_or_nullary_fun ["msg" ":"] @font-lock-comment-face)
@@ -324,11 +332,11 @@ applies the appropriate text property to alter their syntax class."
 
      :language spthy
      :feature keyword
-     (,(spthy-ts-mode--tokens-add-face
+     (,@(spthy-ts-mode--tokens-add-face
         'general '@font-lock-keyword-face)
-      ,(spthy-ts-mode--tokens-add-face
+      ,@(spthy-ts-mode--tokens-add-face
         'processes '@spthy-ts-process-keyword-face)
-      ,(spthy-ts-mode--tokens-add-face
+      ,@(spthy-ts-mode--tokens-add-face
         'preprocessor '@font-lock-preprocessor-face)
       ((atom) @font-lock-keyword-face)
       ("configuration" @font-lock-constant-face)
@@ -399,7 +407,7 @@ applies the appropriate text property to alter their syntax class."
 
      :language spthy
      :feature tactic
-     (,(spthy-ts-mode--tokens-add-face
+     (,@(spthy-ts-mode--tokens-add-face
         'tactic '@font-lock-preprocessor-face)
       ((std_function (function_name) @font-lock-preprocessor-face)))))
 
