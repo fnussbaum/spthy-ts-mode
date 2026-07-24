@@ -342,6 +342,7 @@ applies the appropriate text property to alter their syntax class."
       (restriction restriction_identifier: (ident) @font-lock-function-name-face)
       (lemma lemma_identifier: (ident) @font-lock-function-name-face)
       (diff_lemma lemma_identifier: (ident) @font-lock-function-name-face)
+      (predicate predicate_identifier: (ident) @font-lock-function-name-face)
       (case_test test_identifier: (ident) @font-lock-variable-name-face)
       (accountability_lemma lemma_identifier: (ident) @font-lock-function-name-face)
       (tactic (ident) @font-lock-function-name-face)
