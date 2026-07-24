@@ -196,10 +196,11 @@ applies the appropriate text property to alter their syntax class."
              "process" "lemma" "diffLemma" "all-traces" "exists-trace"
              "All" "Ex" (let "let") (rule_let_block "let")
              (rule_let_block "in") "fresh" "not" "test" "accounts"
-             "account" "for" "equivLemma" "diffEquivLemma" "_restrict")
-    (proof "next" "case" "by" "ATTACK" ((solved)) ((mirrored)) "qed"
-           "contradiction" "backward-search" "simplify"
-           "induction" "rule-equivalence")
+             "account" "for" "equivLemma" "diffEquivLemma" "_restrict"
+             ;; Proofs.
+             "next" "case" "by" "ATTACK" ((solved)) ((mirrored)) "qed"
+             "contradiction" "backward-search" "simplify"
+             "induction" "rule-equivalence")
     (tactic "presort" "prio" "deprio" "smallest" "id")
     (preprocessor "#ifdef" "#else" "#endif" "#define" "#include")
     (quiet "modulo" "$" "~")
@@ -342,7 +343,6 @@ applies the appropriate text property to alter their syntax class."
       ("configuration" @font-lock-constant-face)
       ((option) @font-lock-builtin-face)
       ((built_in) @font-lock-builtin-face)
-      ,(spthy-ts-mode--tokens-add-face 'proof '@font-lock-keyword-face)
       (["step" "solve"] @font-lock-function-call-face)
       (["sorry"] @font-lock-warning-face))
 
