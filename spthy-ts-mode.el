@@ -378,6 +378,14 @@ applies the appropriate text property to alter their syntax class."
        (action_constraint ( linear_fact fact_identifier: (ident)
                             @spthy-ts-action-constraint-face)))
 
+      ;; With this feature, references to predicates and predefined processes are
+      ;; only highlighted when they are defined in the same file. In principle,
+      ;; this could also be applied to function references or action fact
+      ;; references in formulas, etc., but this kind of diagnostic functionality
+      ;; is generally better left to the LSP server, for example. Here, one
+      ;; downside is that the font locking is not necessarily automatically
+      ;; updated when changing or adding a definition identifier.
+      ;; `font-lock-update' can be manually invoked, of course.
       :language spthy
       :feature reference
       :override t
