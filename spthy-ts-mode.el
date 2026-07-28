@@ -550,7 +550,7 @@ applies the appropriate text property to alter their syntax class."
         (formula-indent-style spthy-ts-mode-formula-indent-style)
         (indent-offset spthy-ts-indent-offset)
         (arrow-indent-offset spthy-ts-mode-arrow-indent-offset))
-    (with-temp-buffer
+    (with-work-buffer
       (delay-mode-hooks (spthy-ts-mode))
       (setq-local spthy-ts-mode-formula-indent-style formula-indent-style)
       (setq-local spthy-ts-indent-offset indent-offset)
