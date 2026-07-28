@@ -638,7 +638,7 @@ applies the appropriate text property to alter their syntax class."
 (defun spthy-ts-mode--non-comment-node-p (node)
   (not (member (treesit-node-type node) '("single_comment" "multi_comment"))))
 
-(defun spthy-ts-mode--prev-non-comment-node (bol &optional prev-line)
+(defun spthy-ts-mode--prev-non-comment-node (bol &optional prev-line next)
   (let* ((node-at-bol (treesit-node-at bol))
          (node
           (if (and (< (treesit-node-start node-at-bol)
@@ -649,7 +649,7 @@ applies the appropriate text property to alter their syntax class."
               (goto-char bol)
               (treesit-search-forward-goto
                node-at-bol
-               #'spthy-ts-mode--non-comment-node-p 'start 'backward 'all)
+               #'spthy-ts-mode--non-comment-node-p 'start (unless next 'backward) 'all)
               (treesit-node-at (point))))))
     (unless
         (and prev-line
@@ -659,8 +659,11 @@ applies the appropriate text property to alter their syntax class."
              (save-excursion
                (goto-char bol)
                (cl-loop while
-                        (and (= 0 (forward-line -1))
-                             (>= (point) (treesit-node-start node)))
+                        (and (= 0 (if next (forward-line +1)
+                                    (forward-line -1)))
+                             (if next
+                                 (<= (point) (treesit-node-start node))
+                               (>= (point) (treesit-node-start node))))
                         thereis (looking-at-p "[[:blank:]]*$"))))
       node)))
 
@@ -769,8 +772,15 @@ applies the appropriate text property to alter their syntax class."
         no-indent)
 
        ;;; Comments.
-       ;; ((node-is ,(rxl "multi_comment" "single_comment"))
-       ;;  no-indent)
+       ((node-is ,(rxl "multi_comment" "single_comment"))
+        ;; Anchor to next non-comment-node with no empty line inbetween,
+        ;; otherwise to parent.
+        ,(lambda (_n parent bol &rest _)
+           (or
+            (treesit-node-start (spthy-ts-mode--prev-non-comment-node
+                                 bol 'next-line 'next))
+            (treesit-node-start parent)))
+        0)
 
        ;; Block comments (adapted from `c-ts-mode--simple-indent-rules').
        ;; `c-ts-common-looking-at-star' has to come before
