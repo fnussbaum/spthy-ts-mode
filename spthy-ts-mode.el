@@ -1118,4 +1118,8 @@ applies the appropriate text property to alter their syntax class."
 
 (provide 'spthy-ts-mode)
 
+;; Local Variables:
+;; byte-compile-warnings: (not make-local)
+;; End:
+
 ;;; spthy-ts-mode.el ends here
