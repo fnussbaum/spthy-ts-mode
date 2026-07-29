@@ -47,11 +47,14 @@
   (when (treesit-ready-p 'spthy)
     (add-to-list 'auto-mode-alist '("\\.spthy\\'" . spthy-ts-mode))))
 
+(defgroup spthy-ts nil
+  "Major mode for editing Tamarin spthy files."
+  :group 'languages)
+
 (defcustom spthy-ts-indent-offset 2
   "Number of spaces for each indentation step in `spthy-ts-mode'."
   :type 'integer
-  :safe 'integerp
-  :group 'spthy-ts)
+  :safe 'integerp)
 
 (defcustom spthy-ts-mode-arrow-indent-offset -1
   "Indentation offset of --[]-> and --> in `spthy-ts-mode'.
@@ -71,8 +74,7 @@ rule Rule:
   []
 "
   :type 'integer
-  :safe 'integerp
-  :group 'spthy-ts)
+  :safe 'integerp)
 
 (defcustom spthy-ts-mode-formula-indent-style 'parent
   "Indentation style for formulas in `spthy-ts-mode'.
@@ -107,38 +109,31 @@ All a b c.
 
 When `manual', indentation of logical operators and their operands is
 left to the user and is not touched by commands like `indent-region'."
-  :type '(choice (const parent) (const compact) (const manual))
-  :group 'spthy-ts)
+  :type '(choice (const parent) (const compact) (const manual)))
 
 (defface spthy-ts-process-keyword-face
   '((t (:inherit font-lock-keyword-face)))
-  "Face used for SAPIC+ keywords in spthy files."
-  :group 'spthy-ts)
+  "Face used for SAPIC+ keywords in spthy files.")
 
 (defface spthy-ts-action-fact-face
   '((t (:inherit font-lock-property-name-face)))
-  "Face used for action facts in spthy files."
-  :group 'spthy-ts)
+  "Face used for action facts in spthy files.")
 
 (defface spthy-ts-action-constraint-face
   '((t (:inherit font-lock-property-use-face)))
-  "Face used for action facts within formulas in spthy files."
-  :group 'spthy-ts)
+  "Face used for action facts within formulas in spthy files.")
 
 (defface spthy-ts-built-in-fact-face
   '((t (:inherit font-lock-builtin-face)))
-  "Face used for built-in facts in spthy files."
-  :group 'spthy-ts)
+  "Face used for built-in facts in spthy files.")
 
 (defface spthy-ts-built-in-function-face
   '((t (:inherit font-lock-builtin-face)))
-  "Face used for built-in function calls in spthy files."
-  :group 'spthy-ts)
+  "Face used for built-in function calls in spthy files.")
 
 (defface spthy-ts-function-call-face
   '((t (:inherit font-lock-function-call-face)))
-  "Face used for function calls in spthy files."
-  :group 'spthy-ts)
+  "Face used for function calls in spthy files.")
 
 ;; Adapted from `c-ts-mode-toggle-comment-style'.
 (defun spthy-ts-mode-toggle-comment-style (&optional arg)
