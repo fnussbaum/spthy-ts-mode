@@ -21,14 +21,25 @@ When using Spacemacs, instead add the following to =dotspacemacs-additional-pack
 #+end_src
 
 *** 2. Grammar installation
-After installing the package, use =M-x treesit-install-language-grammar= to
-install the spthy tree-sitter grammar. In case this does not work on your
-system, manually install the grammar from
-https://github.com/fnussbaum/tamarin-prover/tree/599809bc1aa66e6d363df0c38eaa3e60a5547620.
 
-Note that the package is only guaranteed to work with the exact version of the
-grammar specified above. Thus, after updating the package you might have to
-update the grammar, too. This can again be done via =M-x treesit-install-language-grammar=.
+Note that the package only works as intended with the exact version of the
+grammar specified in =treesit-language-source-alist=.
+
+After installing the package, use =M-x treesit-install-language-grammar= to
+install the spthy tree-sitter grammar. This will automatically install the
+required version.
+
+After updating the package, update the grammar, too, in case the required
+version has changed. This can again be done via =M-x
+treesit-install-language-grammar=.
+
+In case the automatic installation does not work on your system, manually
+install the grammar from
+https://github.com/fnussbaum/tamarin-prover/tree/599809bc1aa66e6d363df0c38eaa3e60a5547620.
+Make sure it takes precedence over any other version of the grammar installed on
+your system by moving it into the =tree-sitter= subdirectory of
+=user-emacs-directory=, or a directory specified in =treesit-extra-load-path=,
+which see. The file should have the name =libtree-sitter-spthy.{so|dll|dylib}=.
 
 ** Configuration
 *** Indentation
