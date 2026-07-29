@@ -22,17 +22,15 @@ When using Spacemacs, instead add the following to =dotspacemacs-additional-pack
 #+end_src
 
 *** 2. Grammar installation
-
-Note that the package only works as intended with the exact version of the
-grammar specified in =treesit-language-source-alist=.
+/Note that the package only works as intended with the exact version of the
+grammar specified in/ =treesit-language-source-alist=.
 
 After installing the package, use =M-x treesit-install-language-grammar= to
 install the spthy tree-sitter grammar. This will automatically install the
 required version.
 
 After updating the package, update the grammar, too, in case the required
-version has changed. This can again be done via =M-x
-treesit-install-language-grammar=.
+version has changed. This can again be done via =M-x treesit-install-language-grammar=.
 
 In case the automatic installation does not work on your system, manually
 install the grammar from
@@ -40,7 +38,7 @@ https://github.com/fnussbaum/tamarin-prover/tree/599809bc1aa66e6d363df0c38eaa3e6
 Make sure it takes precedence over any other version of the grammar installed on
 your system by moving it into the =tree-sitter= subdirectory of
 =user-emacs-directory=, or a directory specified in =treesit-extra-load-path=,
-which see. The file should have the name =libtree-sitter-spthy.{so|dll|dylib}=.
+which see. The file should be named =libtree-sitter-spthy.{so|dll|dylib}=.
 
 ** Configuration
 *** Indentation
@@ -48,10 +46,24 @@ See =M-x customize-group spthy-ts=. You can customize the indentation
 offset, the offset of rule arrows, and the indentation style of formulas.
 
 *** Syntax Highlighting
-See the variables =treesit-font-lock-level= and =treesit-font-lock-feature-list=.
-Also, the package defines some custom faces, see =M-x customize-group spthy-ts=.
-# treesit-font-lock-feature-list, treesit-font-lock-level
-# mention builtin, reference features, how to remove
+The package defines some customizable faces, see =M-x customize-group spthy-ts=.
+
+The language features to be highlighted are determined by the variables
+=treesit-font-lock-level= and =treesit-font-lock-feature-list=, which see. The
+function =treesit-font-lock-recompute-features= offers fine-grained control: For
+instance, to enable highlighting of function identifiers while disabling the
+special highlighting of built-in function identifiers, add the following to your
+configuration:
+#+begin_src elisp
+(add-hook 'spthy-ts-mode-hook
+          (lambda ()
+            (treesit-font-lock-recompute-features
+             ;; Add the `function' feature.
+             '(function)
+             ;; Remove the `builtin-function' feature.
+             '(builtin-function)
+             'spthy)))
+#+end_src
 
 *** Smartparens
 If you are using [[https://github.com/Fuco1/smartparens][smartparens]], add the
@@ -60,7 +72,7 @@ following to your configuration to enable spthy support:
 (with-eval-after-load 'spthy-ts-mode
   ;; Wrapped in with-eval-after-load or in the use-package :config block.
   (require 'smartparens-spthy))
-;; If necessary, add the hook:
+;; If necessary:
 ;; (add-hook 'spthy-ts-mode-hook 'smartparens-mode)
 #+end_src
 
