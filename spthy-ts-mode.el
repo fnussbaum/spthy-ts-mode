@@ -309,7 +309,10 @@ applies the appropriate text property to alter their syntax class."
 (defalias 'spthy-ts-mode--imported-theories
   (spthy-ts-mode--throttled-query-function
    (treesit-query-compile 'spthy '((built_in) @builtin))
-   (treesit-node-type (treesit-node-child node 0))))
+   (progn
+     ;; Silence byte-compiler warning about free variable.
+     capture-name
+     (treesit-node-type (treesit-node-child node 0)))))
 
 (defun spthy-ts-mode--add-face-builtin-function
     (node _override start end &rest _)
@@ -692,7 +695,8 @@ applies the appropriate text property to alter their syntax class."
 (defalias 'spthy-ts-mode--proof-exists-p
   (spthy-ts-mode--throttled-query-function
    (treesit-query-compile 'spthy '((lemma proof_skeleton: (_) @proof)))
-   t))
+   ;; Silence byte-compiler warning about free variable.
+   capture-name))
 
 (defun spthy-ts-mode--within-proof-p (node &rest _)
   ;; The recursive check can be expensive, so first check that there even
