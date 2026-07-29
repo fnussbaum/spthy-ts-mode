@@ -260,6 +260,17 @@ applies the appropriate text property to alter their syntax class."
                "--[" "]->" "-->"))
    "Tamarin spthy tokens for tree-sitter font-locking.")
 
+(defconst spthy-ts-mode--builtin-functions
+  '((hashing "h")
+    (asymmetric-encryption "adec" "aenc" "pk")
+    (signing "sign" "verify" "pk" "true")
+    (revealing-signing "revealSign" "revealVerify" "getMessage" "pk" "true")
+    (symmetric-encryption "senc" "sdec")
+    ;; also includes "^" and "*" operators
+    (diffie-hellman "inv" "1" "DH_neutral")
+    (bilinear-pairing "inv" "1" "DH_neutral" "pmult" "em")
+    (xor "zero")))
+
 (eval-and-compile
   (defun spthy-ts-mode--regexp-opt-line (&rest strings)
     (concat "^" (regexp-opt (flatten-list strings)) "$")))
@@ -299,6 +310,26 @@ applies the appropriate text property to alter their syntax class."
                  (treesit-query-capture 'spthy query)
                  collect ,collect))
              ,last-value))))))
+
+(defalias 'spthy-ts-mode--imported-theories
+  (spthy-ts-mode--throttled-query-function
+   (treesit-query-compile 'spthy '((built_in) @builtin))
+   (treesit-node-type (treesit-node-child node 0))))
+
+(defun spthy-ts-mode--add-face-builtin-function
+    (node _override start end &rest _)
+  (let ((node-start (treesit-node-start node))
+        (node-end (treesit-node-end node)))
+    (when
+        (and
+         (<= start node-start node-end end)
+         (let ((imported-theories (spthy-ts-mode--imported-theories)))
+           (cl-loop for (theory . idents) in spthy-ts-mode--builtin-functions
+                    thereis
+                    (and (member (treesit-node-text node) idents)
+                         (member (symbol-name theory) imported-theories)))))
+      (add-face-text-property
+       node-start node-end 'spthy-ts-built-in-function-face))))
 
 (defalias 'spthy-ts-mode--global-definitions
   (spthy-ts-mode--throttled-query-function
@@ -444,6 +475,21 @@ applies the appropriate text property to alter their syntax class."
        ;; Process references.
        (predefined_process (mset_term) @spthy-ts-mode--add-face-process-identifier)
        (let let_identifier: (mset_term) @spthy-ts-mode--add-face-process-identifier))
+
+      :language spthy
+      :feature builtin-function
+      :override t
+      ((nary_app function_identifier: (ident)
+                 @spthy-ts-mode--add-face-builtin-function)
+       (binary_app function_identifier: (ident)
+                   @spthy-ts-mode--add-face-builtin-function)
+       (nullary_fun function_identifier: (ident)
+                    @spthy-ts-mode--add-face-builtin-function)
+       ;; Could a nullary function potentially get shadowed
+       ;; by a variable of the same name?
+       ;; But then again, why would one choose a conflicting name...
+       (msg_var_or_nullary_fun variable_identifier: (ident)
+                               @spthy-ts-mode--add-face-builtin-function))
 
       :language spthy
       :feature builtin-fact
@@ -1160,7 +1206,7 @@ applies the appropriate text property to alter their syntax class."
                 '(( comment constant quiet)
                   ( keyword)
                   ( action-fact reference builtin-fact
-                    operator tactic)
+                    builtin-function operator tactic)
                   ( definition function)))
 
     (treesit-major-mode-setup)))
