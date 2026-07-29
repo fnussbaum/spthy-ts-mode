@@ -75,7 +75,38 @@ rule Rule:
   :group 'spthy-ts)
 
 (defcustom spthy-ts-mode-formula-indent-style 'parent
-  "Indentation style for formulas in `spthy-ts-mode'."
+  "Indentation style for formulas in `spthy-ts-mode'.
+
+When `parent', the default, a logical operator or the operand that
+follows it are indented to align with the column where their enclosing
+subformula begins. For example:
+
+All a b c. A(a)
+           ==> B(b) &
+               C(c)
+
+The `compact' style behaves like `parent', except when the enclosing
+subformula starts on the same line as its quantifier. In that case, the
+indentation is usually computed as if the subformula started on the line
+after the quantifier.
+For example, instead of:
+
+All a b c. A(a)
+           ==> B(b, c)
+
+`compact' indents as:
+
+All a b c. A(a)
+  ==> B(b, c)
+
+which is the same as if the formula had been written:
+
+All a b c.
+  A(a)
+  ==> B(b, c)
+
+When `manual', indentation of logical operators and their operands is
+left to the user and is not touched by commands like `indent-region'."
   :type '(choice (const parent) (const compact) (const manual))
   :group 'spthy-ts)
 
@@ -457,21 +488,6 @@ applies the appropriate text property to alter their syntax class."
       ('parent
         `(,(treesit-node-start parent) . 0))
       ('compact
-        ;; Compact indentation style:
-        ;; Usually we just indent to the column of the parent, however,
-        ;; if the parent is on the same line as its enclosing quantifier,
-        ;; then we usually shift to the left as follows.
-        ;; Instead of:
-        ;; All a b c. A(a)
-        ;;            ==> B(b, c)
-        ;; We indent:
-        ;; All a b c. A(a)
-        ;;   ==> B(b, c)
-        ;; More precisely, we indent exactly as if the parent were
-        ;; on the line following the quantifier:
-        ;; All a b c.
-        ;;   A(a)
-        ;;   ==> B(b, c)
         (cl-flet* ((above-parent-line-p (nod)
                      (< (treesit-node-start nod)
                         (save-excursion
