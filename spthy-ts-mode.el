@@ -882,7 +882,7 @@ applies the appropriate text property to alter their syntax class."
         spthy-ts-mode--end-of-prev-node 2)
 
 
-       ;;; Formulas.
+       ;;; Lemmas and formulas.
        spthy-ts-mode--logical-operator-indent-rule
        spthy-ts-mode--formula-writing-indent-rule
        ((and (parent-is "^quantified_formula$")
@@ -895,11 +895,9 @@ applies the appropriate text property to alter their syntax class."
         parent spthy-ts-indent-offset)
        ((field-is "^formula$")
         parent spthy-ts-indent-offset)
-       ((or (n-p-gp "\""
-                    ,(rxl "lemma" "restriction" "case_test"
-                          "accountability_lemma")
-                    nil)
-            (node-is "^trace_quantifier$"))
+       ((and (not no-node)
+             (parent-is ,(rxl "lemma" "restriction" "case_test"
+                              "accountability_lemma")))
         column-0 spthy-ts-indent-offset)
 
 
