@@ -94,6 +94,21 @@ rule Rule:
   "Face used for action facts within formulas in spthy files."
   :group 'spthy-ts)
 
+(defface spthy-ts-built-in-fact-face
+  '((t (:inherit font-lock-builtin-face)))
+  "Face used for built-in facts in spthy files."
+  :group 'spthy-ts)
+
+(defface spthy-ts-built-in-function-face
+  '((t (:inherit font-lock-builtin-face)))
+  "Face used for built-in function calls in spthy files."
+  :group 'spthy-ts)
+
+(defface spthy-ts-function-call-face
+  '((t (:inherit font-lock-function-call-face)))
+  "Face used for function calls in spthy files."
+  :group 'spthy-ts)
+
 ;; Adapted from `c-ts-mode-toggle-comment-style'.
 (defun spthy-ts-mode-toggle-comment-style (&optional arg)
   "Toggle the comment style between block and line comments.
@@ -233,7 +248,7 @@ applies the appropriate text property to alter their syntax class."
          (<= start node-start node-end end)
          (member (treesit-node-text node) spthy-ts-mode--builtin-facts))
       (add-face-text-property
-       node-start node-end 'font-lock-builtin-face))))
+       node-start node-end 'spthy-ts-built-in-fact-face))))
 
 (defmacro spthy-ts-mode--throttled-query-function (query collect)
   (let ((last-time (gensym "last-time"))
@@ -363,9 +378,9 @@ applies the appropriate text property to alter their syntax class."
       :language spthy
       :feature function
       ((nary_app function_identifier: (ident)
-                 @font-lock-function-call-face)
+                 @spthy-ts-function-call-face)
        (binary_app function_identifier: (ident)
-                   @font-lock-function-call-face))
+                   @spthy-ts-function-call-face))
 
       :language spthy
       :feature action-fact
