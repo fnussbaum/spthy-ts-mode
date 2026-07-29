@@ -826,7 +826,8 @@ applies the appropriate text property to alter their syntax class."
       "set_state" "output" "event" "process_let" "binding"
       "conditional" "predefined_process" "inline_msr_process"
       "nested_process" "location_process" "deterministic_choice"
-      "non_deterministic_choice" "replication"))
+      "non_deterministic_choice" "replication"
+      "single_comment" "multi_comment"))
   (defconst spthy-ts-mode--signature-spec-nodes
     '("built_ins" "functions" "equations"
       "predicates" "macros" "options")))
