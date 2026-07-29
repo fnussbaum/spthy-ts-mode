@@ -846,9 +846,6 @@ applies the appropriate text property to alter their syntax class."
         no-indent)
 
        ;;; Comments.
-       ;; ((node-is ,(rxl "multi_comment" "single_comment"))
-       ;;  no-indent)
-
        ;; Block comments (adapted from `c-ts-mode--simple-indent-rules').
        ;; `c-ts-common-looking-at-star' has to come before
        ;; `c-ts-common-comment-2nd-line-matcher'.
@@ -1078,7 +1075,6 @@ applies the appropriate text property to alter their syntax class."
        ((node-is "^arguments$")
         parent spthy-ts-indent-offset)
 
-
        ;;; Some empty line and fallback cases.
        ((and no-node (or (parent-is "^premise$")
                          (parent-is "^conclusion$"))
@@ -1093,6 +1089,8 @@ applies the appropriate text property to alter their syntax class."
        ((and no-node (parent-is "^action_fact$"))
         parent 2)
        spthy-ts-mode--no-node-fallback-rule
+       ((node-is ,(rxl "multi_comment" "single_comment"))
+        parent 0)
        (no-node prev-line 0)
        (catch-all parent 0)))))
 
