@@ -56,7 +56,7 @@
   :type 'integer
   :safe 'integerp)
 
-(defcustom spthy-ts-mode-arrow-indent-offset -1
+(defcustom spthy-ts-arrow-indent-offset -1
   "Indentation offset of --[]-> and --> in `spthy-ts-mode'.
 The value, an integer, is relative to the indentation
 of premises and conclusions.
@@ -76,7 +76,7 @@ rule Rule:
   :type 'integer
   :safe 'integerp)
 
-(defcustom spthy-ts-mode-formula-indent-style 'parent
+(defcustom spthy-ts-formula-indent-style 'parent
   "Indentation style for formulas in `spthy-ts-mode'.
 
 When `parent', the default, a logical operator or the operand that
@@ -111,7 +111,7 @@ When `manual', indentation of logical operators and their operands is
 left to the user and is not touched by commands like `indent-region'."
   :type '(choice (const parent) (const compact) (const manual)))
 
-(defcustom spthy-ts-mode-formula-align-operands nil
+(defcustom spthy-ts-formula-align-operands nil
   "Whether to align operands in formulas in `spthy-ts-mode'."
   :type 'boolean)
 
@@ -140,7 +140,7 @@ left to the user and is not touched by commands like `indent-region'."
   "Face used for function calls in spthy files.")
 
 ;; Adapted from `c-ts-mode-toggle-comment-style'.
-(defun spthy-ts-mode-toggle-comment-style (&optional arg)
+(defun spthy-ts-toggle-comment-style (&optional arg)
   "Toggle the comment style between block and line comments.
 Optional numeric ARG, if supplied, switches to block comment
 style when positive, to line comment style when negative, and
@@ -159,7 +159,7 @@ just toggles it when zero or omitted."
 
 ;;; Syntax table
 
-(defvar spthy-ts-mode--syntax-table
+(defvar spthy-ts--syntax-table
   (let ((table (make-syntax-table)))
     (modify-syntax-entry ?_   "_"      table)
     (modify-syntax-entry ?%   "_"      table)
@@ -192,7 +192,7 @@ just toggles it when zero or omitted."
     table))
 
 ;; Adapted from `c-ts-mode--syntax-propertize'.
-(defun spthy-ts-mode--syntax-propertize (beg end)
+(defun spthy-ts--syntax-propertize (beg end)
   "Apply syntax text property to template delimiters between BEG and END.
 
 < and > are usually punctuation, e.g., in ]->, or as comparison operators;
@@ -234,7 +234,7 @@ applies the appropriate text property to alter their syntax class."
 
 ;;; Font-lock
 
-(defconst spthy-ts-mode--tokens
+(defconst spthy-ts--tokens
   '((general "theory" "begin" "end" "builtins" "functions" "export"
              "options" "equations" "predicates" "macros" "heuristic"
              "options" "tactic" "rule" "variants" "axiom" "restriction"
@@ -259,7 +259,7 @@ applies the appropriate text property to alter their syntax class."
                "--[" "]->" "-->"))
    "Tamarin spthy tokens for tree-sitter font-locking.")
 
-(defconst spthy-ts-mode--builtin-functions
+(defconst spthy-ts--builtin-functions
   '((hashing "h")
     (asymmetric-encryption "adec" "aenc" "pk")
     (signing "sign" "verify" "pk" "true")
@@ -271,27 +271,27 @@ applies the appropriate text property to alter their syntax class."
     (xor "zero")))
 
 (eval-and-compile
-  (defun spthy-ts-mode--regexp-opt-line (&rest strings)
+  (defun spthy-ts--regexp-opt-line (&rest strings)
     (concat "^" (regexp-opt (flatten-list strings)) "$")))
 
-(defmacro spthy-ts-mode--rxl (&rest args)
-  (apply #'spthy-ts-mode--regexp-opt-line args))
+(defmacro spthy-ts--rxl (&rest args)
+  (apply #'spthy-ts--regexp-opt-line args))
 
-(defconst spthy-ts-mode--builtin-facts
+(defconst spthy-ts--builtin-facts
   '("In" "Out" "Fr" "K" "KU" "KD"))
 
-(defun spthy-ts-mode--add-face-builtin-fact
+(defun spthy-ts--add-face-builtin-fact
     (node _override start end &rest _)
   (let ((node-start (treesit-node-start node))
         (node-end (treesit-node-end node)))
     (when
         (and
          (<= start node-start node-end end)
-         (member (treesit-node-text node) spthy-ts-mode--builtin-facts))
+         (member (treesit-node-text node) spthy-ts--builtin-facts))
       (add-face-text-property
        node-start node-end 'spthy-ts-built-in-fact-face))))
 
-(defmacro spthy-ts-mode--throttled-query-function (query collect)
+(defmacro spthy-ts--throttled-query-function (query collect)
   (let ((last-time (gensym "last-time"))
         (last-value (gensym "last-value")))
     `(let ((query ,query))
@@ -310,31 +310,31 @@ applies the appropriate text property to alter their syntax class."
                  collect ,collect))
              ,last-value))))))
 
-(defalias 'spthy-ts-mode--imported-theories
-  (spthy-ts-mode--throttled-query-function
+(defalias 'spthy-ts--imported-theories
+  (spthy-ts--throttled-query-function
    (treesit-query-compile 'spthy '((built_in) @builtin))
    (progn
      ;; Silence byte-compiler warning about free variable.
      capture-name
      (treesit-node-type (treesit-node-child node 0)))))
 
-(defun spthy-ts-mode--add-face-builtin-function
+(defun spthy-ts--add-face-builtin-function
     (node _override start end &rest _)
   (let ((node-start (treesit-node-start node))
         (node-end (treesit-node-end node)))
     (when
         (and
          (<= start node-start node-end end)
-         (let ((imported-theories (spthy-ts-mode--imported-theories)))
-           (cl-loop for (theory . idents) in spthy-ts-mode--builtin-functions
+         (let ((imported-theories (spthy-ts--imported-theories)))
+           (cl-loop for (theory . idents) in spthy-ts--builtin-functions
                     thereis
                     (and (member (treesit-node-text node) idents)
                          (member (symbol-name theory) imported-theories)))))
       (add-face-text-property
        node-start node-end 'spthy-ts-built-in-function-face))))
 
-(defalias 'spthy-ts-mode--global-definitions
-  (spthy-ts-mode--throttled-query-function
+(defalias 'spthy-ts--global-definitions
+  (spthy-ts--throttled-query-function
    (treesit-query-compile
     'spthy '((let (mset_term) @process)
              (predicate predicate_identifier: (ident) @predicate)))
@@ -343,7 +343,7 @@ applies the appropriate text property to alter their syntax class."
     (treesit-node-text
      (treesit-node-at (treesit-node-start node))))))
 
-(defun spthy-ts-mode--add-face-process-identifier
+(defun spthy-ts--add-face-process-identifier
     (node _override start end &rest _)
   (let* ((ident (treesit-node-at (treesit-node-start node)))
          (ident-start (treesit-node-start ident))
@@ -352,44 +352,44 @@ applies the appropriate text property to alter their syntax class."
         (and (<= start ident-start ident-end end)
              (or (treesit-node-match-p (treesit-node-parent node) "^let$")
                  (member `(process . ,(treesit-node-text ident))
-                         (spthy-ts-mode--global-definitions))))
+                         (spthy-ts--global-definitions))))
       (add-face-text-property
        ident-start ident-end 'font-lock-variable-name-face))))
 
-(defun spthy-ts-mode--add-face-reference
+(defun spthy-ts--add-face-reference
     (node _override start end &rest _)
   (let* ((node-start (treesit-node-start node))
          (node-end (treesit-node-end node)))
     (when (and (<= start node-start node-end end)
                (member (cons 'predicate (treesit-node-text node))
-                       (spthy-ts-mode--global-definitions)))
+                       (spthy-ts--global-definitions)))
       (add-face-text-property
        node-start node-end
        'font-lock-function-call-face))))
 
-(defun spthy-ts-mode--tokens-add-face (type face)
+(defun spthy-ts--tokens-add-face (type face)
   (cons
    ;; For tokens defined as strings, build a vector and append the face.
    (list
     (apply
      #'vector
-     (cl-remove-if #'consp (alist-get type spthy-ts-mode--tokens)))
+     (cl-remove-if #'consp (alist-get type spthy-ts--tokens)))
     face)
    ;; For tokens defined as lists, append the face to each one.
    (mapcar
     (lambda (token) (append token (list face)))
     (cl-remove-if-not
      #'consp
-     (alist-get type spthy-ts-mode--tokens)))))
+     (alist-get type spthy-ts--tokens)))))
 
-(defvar spthy-ts-mode--font-lock-settings
+(defvar spthy-ts--font-lock-settings
   (apply
    #'treesit-font-lock-rules
    `( :language spthy
       :feature comment
       (([(multi_comment) (single_comment)] @font-lock-comment-face)
        ( formal_comment comment_identifier: (ident) @font-lock-constant-face
-         (:match ,(spthy-ts-mode--rxl "section" "subsection" "text")
+         (:match ,(spthy-ts--rxl "section" "subsection" "text")
                  @font-lock-constant-face)))
 
       :language spthy
@@ -398,13 +398,13 @@ applies the appropriate text property to alter their syntax class."
 
       :language spthy
       :feature operator
-      (,@(spthy-ts-mode--tokens-add-face
+      (,@(spthy-ts--tokens-add-face
           'operators '@font-lock-operator-face))
 
       ;; Inspired by `spthy-mode'.
       :language spthy
       :feature quiet
-      (,@(spthy-ts-mode--tokens-add-face 'quiet '@font-lock-comment-face)
+      (,@(spthy-ts--tokens-add-face 'quiet '@font-lock-comment-face)
        (pub_var ["pub" ":"] @font-lock-comment-face)
        (fresh_var ["fresh" ":"] @font-lock-comment-face)
        (msg_var_or_nullary_fun ["msg" ":"] @font-lock-comment-face)
@@ -414,11 +414,11 @@ applies the appropriate text property to alter their syntax class."
 
       :language spthy
       :feature keyword
-      (,@(spthy-ts-mode--tokens-add-face
+      (,@(spthy-ts--tokens-add-face
           'general '@font-lock-keyword-face)
-       ,@(spthy-ts-mode--tokens-add-face
+       ,@(spthy-ts--tokens-add-face
           'processes '@spthy-ts-process-keyword-face)
-       ,@(spthy-ts-mode--tokens-add-face
+       ,@(spthy-ts--tokens-add-face
           'preprocessor '@font-lock-preprocessor-face)
        ((atom) @font-lock-keyword-face)
        ("configuration" @font-lock-constant-face)
@@ -437,7 +437,7 @@ applies the appropriate text property to alter their syntax class."
        (case_test test_identifier: (ident) @font-lock-variable-name-face)
        (accountability_lemma lemma_identifier: (ident) @font-lock-function-name-face)
        (tactic (ident) @font-lock-function-name-face)
-       (let let_identifier: (mset_term) @spthy-ts-mode--add-face-process-identifier))
+       (let let_identifier: (mset_term) @spthy-ts--add-face-process-identifier))
 
       :language spthy
       :feature function
@@ -472,74 +472,74 @@ applies the appropriate text property to alter their syntax class."
        ;; facts as predicates before adding the @t annotation when writing lemmas.
        ;; Hence we look up the definitions and only highlight defined predicates.
        (predicate_ref predicate_identifier: (ident)
-                      @spthy-ts-mode--add-face-reference)
+                      @spthy-ts--add-face-reference)
        (predicate predicate_identifier: (ident) @font-lock-function-name-face)
        ;; Process references.
-       (predefined_process (mset_term) @spthy-ts-mode--add-face-process-identifier)
-       (let let_identifier: (mset_term) @spthy-ts-mode--add-face-process-identifier))
+       (predefined_process (mset_term) @spthy-ts--add-face-process-identifier)
+       (let let_identifier: (mset_term) @spthy-ts--add-face-process-identifier))
 
       :language spthy
       :feature builtin-function
       :override t
       ((nary_app function_identifier: (ident)
-                 @spthy-ts-mode--add-face-builtin-function)
+                 @spthy-ts--add-face-builtin-function)
        (binary_app function_identifier: (ident)
-                   @spthy-ts-mode--add-face-builtin-function)
+                   @spthy-ts--add-face-builtin-function)
        (nullary_fun function_identifier: (ident)
-                    @spthy-ts-mode--add-face-builtin-function)
+                    @spthy-ts--add-face-builtin-function)
        ;; Could a nullary function potentially get shadowed
        ;; by a variable of the same name?
        ;; But then again, why would one choose a conflicting name...
        (msg_var_or_nullary_fun variable_identifier: (ident)
-                               @spthy-ts-mode--add-face-builtin-function))
+                               @spthy-ts--add-face-builtin-function))
 
       :language spthy
       :feature builtin-fact
       :override t
       ((action_constraint ( linear_fact fact_identifier: (ident)
-                            @spthy-ts-mode--add-face-builtin-fact))
+                            @spthy-ts--add-face-builtin-fact))
        (action_constraint ( persistent_fact fact_identifier: (ident)
-                            @spthy-ts-mode--add-face-builtin-fact))
+                            @spthy-ts--add-face-builtin-fact))
        (premise ( linear_fact fact_identifier: (ident)
-                  @spthy-ts-mode--add-face-builtin-fact))
+                  @spthy-ts--add-face-builtin-fact))
        (premise ( persistent_fact fact_identifier: (ident)
-                  @spthy-ts-mode--add-face-builtin-fact))
+                  @spthy-ts--add-face-builtin-fact))
        (conclusion ( linear_fact fact_identifier: (ident)
-                     @spthy-ts-mode--add-face-builtin-fact))
+                     @spthy-ts--add-face-builtin-fact))
        (conclusion ( persistent_fact fact_identifier: (ident)
-                     @spthy-ts-mode--add-face-builtin-fact)))
+                     @spthy-ts--add-face-builtin-fact)))
 
       :language spthy
       :feature tactic
-      (,@(spthy-ts-mode--tokens-add-face
+      (,@(spthy-ts--tokens-add-face
           'tactic '@font-lock-preprocessor-face)
        ((std_function (function_name) @font-lock-preprocessor-face))))))
 
 ;;; Indentation
 
-(defun spthy-ts-mode--logical-operator-indent-rule (node parent &rest _)
+(defun spthy-ts--logical-operator-indent-rule (node parent &rest _)
   (let* ((is-binary-op
           ;; We cannot use `treesit-node-match-p' here because it assumes
           ;; single-byte characters (see fast_c_string_match_internal). For
           ;; example, "∨" would match "(".
           (string-match-p
-           (spthy-ts-mode--rxl
+           (spthy-ts--rxl
             "&" "∧" "|" "∨" "==>" "⇒" "<=>" "⇔" )
            (or (treesit-node-type node) "")))
          (offset (if (and is-binary-op
-                          spthy-ts-mode-formula-align-operands)
+                          spthy-ts-formula-align-operands)
                      -2
                    0)))
     (when (or is-binary-op
               (string-match-p
-               (spthy-ts-mode--rxl "not" "¬")
+               (spthy-ts--rxl "not" "¬")
                (or (treesit-node-type node) ""))
               (and (not (null node))
                    (treesit-node-match-p
                     parent
-                    (spthy-ts-mode--rxl
+                    (spthy-ts--rxl
                      "conjunction" "disjunction" "imp" "iff" "negation"))))
-      (pcase spthy-ts-mode-formula-indent-style
+      (pcase spthy-ts-formula-indent-style
         ('manual
          '(no-indent))
         ('parent
@@ -576,9 +576,9 @@ applies the appropriate text property to alter their syntax class."
                      offset-to-quant-child
                      offset))))))))))
 
-(defun spthy-ts-mode--formula-writing-indent-rule (node parent bol &rest _)
+(defun spthy-ts--formula-writing-indent-rule (node parent bol &rest _)
   (when (or (and (null node)
-                 (and-let* ((prev-node (spthy-ts-mode--prev-non-comment-node bol t))
+                 (and-let* ((prev-node (spthy-ts--prev-non-comment-node bol t))
                             ((not (treesit-node-match-p prev-node "^,$")))
                             (target-node
                              (treesit-search-forward
@@ -588,11 +588,11 @@ applies the appropriate text property to alter their syntax class."
                                  (treesit-node-match-p nod "^embedded_restriction$")
                                  (treesit-node-match-p
                                   (treesit-node-parent nod)
-                                  (spthy-ts-mode--rxl "theory" "predicate"))))
+                                  (spthy-ts--rxl "theory" "predicate"))))
                               'backward)))
                    (or (treesit-node-match-p
                         target-node
-                        (spthy-ts-mode--rxl
+                        (spthy-ts--rxl
                          "lemma" "restriction" "case_test"
                          "accountability_lemma" "embedded_restriction"))
                        (and (treesit-node-match-p
@@ -603,50 +603,50 @@ applies the appropriate text property to alter their syntax class."
             (and (treesit-node-match-p node "^)$")
                  (treesit-node-match-p
                   parent
-                  (spthy-ts-mode--rxl
+                  (spthy-ts--rxl
                    "nested_formula" "embedded_restriction"))))
     (or
-     (let ((spthy-ts-mode-formula-indent-style
-            (if (eq spthy-ts-mode-formula-indent-style 'manual)
+     (let ((spthy-ts-formula-indent-style
+            (if (eq spthy-ts-formula-indent-style 'manual)
                 'parent
-              spthy-ts-mode-formula-indent-style)))
-       (spthy-ts-mode--indent-try-insertions '("| A()" "A()" "a. A()") bol))
+              spthy-ts-formula-indent-style)))
+       (spthy-ts--indent-try-insertions '("| A()" "A()" "a. A()") bol))
      `(,(funcall (alist-get 'prev-line treesit-simple-indent-presets)
                  node parent bol)
        . 0))))
 
-(defun spthy-ts-mode--no-node-fallback-rule (node _parent bol &rest _)
+(defun spthy-ts--no-node-fallback-rule (node _parent bol &rest _)
   ;; The formula-writing-indent-rule above might not have applied due to an
   ;; error, like a missing closing " in an incomplete formula of a lemma.
   ;; Hence we try again here.
   (when (and (null node)
-             (spthy-ts-mode--prev-non-comment-node bol t))
-    (let ((spthy-ts-mode-formula-indent-style
-           (if (eq spthy-ts-mode-formula-indent-style 'manual)
+             (spthy-ts--prev-non-comment-node bol t))
+    (let ((spthy-ts-formula-indent-style
+           (if (eq spthy-ts-formula-indent-style 'manual)
                'parent
-             spthy-ts-mode-formula-indent-style)))
-      (spthy-ts-mode--indent-try-insertions '("| A()" "A()" "a. A()") bol))))
+             spthy-ts-formula-indent-style)))
+      (spthy-ts--indent-try-insertions '("| A()" "A()" "a. A()") bol))))
 
-(defun spthy-ts-mode--incomplete-let-indent-rule (_node _parent bol &rest _)
-  (when-let* ((node (spthy-ts-mode--prev-non-comment-node bol))
+(defun spthy-ts--incomplete-let-indent-rule (_node _parent bol &rest _)
+  (when-let* ((node (spthy-ts--prev-non-comment-node bol))
               (let-pos
                (when (equal (treesit-node-type node) "let")
                  (treesit-node-start node))))
     `(,let-pos . ,spthy-ts-indent-offset)))
 
-(defun spthy-ts-mode--indent-try-insertions (candidates bol)
+(defun spthy-ts--indent-try-insertions (candidates bol)
   (let ((prefix (buffer-substring-no-properties (point-min) bol))
         ;; The buffer-local values could differ from the default.
-        (formula-indent-style spthy-ts-mode-formula-indent-style)
-        (formula-align-operands spthy-ts-mode-formula-align-operands)
+        (formula-indent-style spthy-ts-formula-indent-style)
+        (formula-align-operands spthy-ts-formula-align-operands)
         (indent-offset spthy-ts-indent-offset)
-        (arrow-indent-offset spthy-ts-mode-arrow-indent-offset))
+        (arrow-indent-offset spthy-ts-arrow-indent-offset))
     (with-work-buffer
       (delay-mode-hooks (spthy-ts-mode))
-      (setq-local spthy-ts-mode-formula-indent-style formula-indent-style)
-      (setq-local spthy-ts-mode-formula-align-operands formula-align-operands)
+      (setq-local spthy-ts-formula-indent-style formula-indent-style)
+      (setq-local spthy-ts-formula-align-operands formula-align-operands)
       (setq-local spthy-ts-indent-offset indent-offset)
-      (setq-local spthy-ts-mode-arrow-indent-offset arrow-indent-offset)
+      (setq-local spthy-ts-arrow-indent-offset arrow-indent-offset)
       (insert prefix)
       (insert "\n\nend")
       (goto-char bol)
@@ -659,11 +659,11 @@ applies the appropriate text property to alter their syntax class."
                   (not
                    ;; Check for errors in and right before the insertion.
                    (let ((pos (treesit-node-start
-                               (spthy-ts-mode--prev-non-comment-node
+                               (spthy-ts--prev-non-comment-node
                                 (pos-bol 2))))
                          (prev-pos
                           (treesit-node-start
-                           (spthy-ts-mode--prev-non-comment-node temp-bol))))
+                           (spthy-ts--prev-non-comment-node temp-bol))))
                      (catch 'error
                        (while (>= pos prev-pos)
                          (when (treesit-node-check
@@ -679,46 +679,46 @@ applies the appropriate text property to alter their syntax class."
                         temp-bol))))
             (delete-region temp-bol (point))))))))
 
-(defun spthy-ts-mode--missing-closing-bracket-indent-rule
+(defun spthy-ts--missing-closing-bracket-indent-rule
     (node _parent bol &rest _)
   (when (and (null node)
              (treesit-parent-until
-              (spthy-ts-mode--prev-non-comment-node bol)
+              (spthy-ts--prev-non-comment-node bol)
               (lambda (nod)
                 (and (treesit-node-match-p (treesit-node-parent nod) "^ERROR$")
                      (not (treesit-node-match-p nod "^theory$"))))
               t))
-    (spthy-ts-mode--indent-try-insertions '("]" "]->" ")" ">") bol)))
+    (spthy-ts--indent-try-insertions '("]" "]->" ")" ">") bol)))
 
-(defconst spthy-ts-mode--missing-query
+(defconst spthy-ts--missing-query
   (treesit-query-compile 'spthy '((MISSING) @missing)))
 
-(defun spthy-ts-mode--parser-missing-node-indent-rule
+(defun spthy-ts--parser-missing-node-indent-rule
     (node _parent bol &rest _)
   (when-let* ((_ (null node))
               (missing-node
                (car
                 (let ((pos (treesit-node-end
-                            (spthy-ts-mode--prev-non-comment-node bol))))
+                            (spthy-ts--prev-non-comment-node bol))))
                   (member-if
                    (lambda (nod)
                      (equal (treesit-node-start nod) pos))
                    (treesit-query-capture
-                    'spthy spthy-ts-mode--missing-query
+                    'spthy spthy-ts--missing-query
                     nil nil 'node-only))))))
-    (spthy-ts-mode--indent-try-insertions
+    (spthy-ts--indent-try-insertions
      (list (treesit-node-type missing-node)) bol)))
 
-(defalias 'spthy-ts-mode--proof-exists-p
-  (spthy-ts-mode--throttled-query-function
+(defalias 'spthy-ts--proof-exists-p
+  (spthy-ts--throttled-query-function
    (treesit-query-compile 'spthy '((lemma proof_skeleton: (_) @proof)))
    ;; Silence byte-compiler warning about free variable.
    capture-name))
 
-(defun spthy-ts-mode--within-proof-p (node &rest _)
+(defun spthy-ts--within-proof-p (node &rest _)
   ;; The recursive check can be expensive, so first check that there even
   ;; exists a proof in the buffer at all.
-  (when (spthy-ts-mode--proof-exists-p)
+  (when (spthy-ts--proof-exists-p)
     (cl-flet ((proof-node-p (nod)
                 (or (member (treesit-node-type nod)
                             '("cases" "case" "step"))
@@ -728,21 +728,21 @@ applies the appropriate text property to alter their syntax class."
        node
        #'proof-node-p 'include-node))))
 
-(defun spthy-ts-mode--non-comment-node-p (node)
+(defun spthy-ts--non-comment-node-p (node)
   (not (member (treesit-node-type node) '("single_comment" "multi_comment"))))
 
-(defun spthy-ts-mode--prev-non-comment-node (bol &optional prev-line)
+(defun spthy-ts--prev-non-comment-node (bol &optional prev-line)
   (let* ((node-at-bol (treesit-node-at bol))
          (node
           (if (and (< (treesit-node-start node-at-bol)
                       bol)
-                   (spthy-ts-mode--non-comment-node-p node-at-bol))
+                   (spthy-ts--non-comment-node-p node-at-bol))
               node-at-bol
             (save-excursion
               (goto-char bol)
               (treesit-search-forward-goto
                node-at-bol
-               #'spthy-ts-mode--non-comment-node-p 'start 'backward 'all)
+               #'spthy-ts--non-comment-node-p 'start 'backward 'all)
               (treesit-node-at (point))))))
     (unless
         (and prev-line
@@ -757,11 +757,11 @@ applies the appropriate text property to alter their syntax class."
                         thereis (looking-at-p "[[:blank:]]*$"))))
       node)))
 
-(cl-defun spthy-ts-mode--prev-node-is (node-t &key p gp prev-line bolp)
+(cl-defun spthy-ts--prev-node-is (node-t &key p gp prev-line bolp)
   (lambda (_node _parent bol &rest _)
     (let ((node (if bolp
                     (treesit--indent-prev-line-node bol)
-                  (spthy-ts-mode--prev-non-comment-node bol prev-line))))
+                  (spthy-ts--prev-non-comment-node bol prev-line))))
       (and
        (or (null node-t)
            (string-match-p
@@ -780,19 +780,19 @@ applies the appropriate text property to alter their syntax class."
                   (treesit-node-parent node)))
                 "")))))))
 
-(defun spthy-ts-mode--end-of-prev-node
+(defun spthy-ts--end-of-prev-node
     (_node _parent bol)
-  (1- (treesit-node-end (spthy-ts-mode--prev-non-comment-node bol))))
+  (1- (treesit-node-end (spthy-ts--prev-non-comment-node bol))))
 
 ;; Adapted from `standalone-parent' in `treesit-simple-indent-presets'.
-(defun spthy-ts-mode--nested-or-standalone-parent (_node parent &rest _)
+(defun spthy-ts--nested-or-standalone-parent (_node parent &rest _)
   (save-excursion
     (catch 'term
       (while parent
         (goto-char (treesit-node-start parent))
         (when (or (treesit-node-match-p
                    (treesit-node-parent parent)
-                   (spthy-ts-mode--rxl
+                   (spthy-ts--rxl
                     "nested_process" "location_process" "replication"
                     "deterministic_choice" "nondeterministic_choice"))
                   (looking-back (rx bol (* whitespace))
@@ -800,7 +800,7 @@ applies the appropriate text property to alter their syntax class."
           (throw 'term (point)))
         (setq parent (treesit-node-parent parent))))))
 
-(defun spthy-ts-mode--else-anchor (_node parent &rest _)
+(defun spthy-ts--else-anchor (_node parent &rest _)
   (let* ((parent-bol (save-excursion
                        (goto-char (treesit-node-start parent))
                        (pos-bol)))
@@ -823,7 +823,7 @@ applies the appropriate text property to alter their syntax class."
         (treesit-node-start else-node)
       (treesit-node-start parent))))
 
-(defun spthy-ts-mode--matching-bracket-start (node parent &rest _)
+(defun spthy-ts--matching-bracket-start (node parent &rest _)
   (let ((matching-bracket
          (pcase (treesit-node-type node)
            (")" "^($")
@@ -837,29 +837,29 @@ applies the appropriate text property to alter their syntax class."
          parent))))
 
 (eval-and-compile
-  (defconst spthy-ts-mode--process-nodes
+  (defconst spthy-ts--process-nodes
     '("set_lock" "remove_lock" "input" "read_state" "delete_state"
       "set_state" "output" "event" "process_let" "binding"
       "conditional" "predefined_process" "inline_msr_process"
       "nested_process" "location_process" "deterministic_choice"
       "non_deterministic_choice" "replication"
       "single_comment" "multi_comment"))
-  (defconst spthy-ts-mode--signature-spec-nodes
+  (defconst spthy-ts--signature-spec-nodes
     '("built_ins" "functions" "equations"
       "predicates" "macros" "options")))
 
-(defvar spthy-ts-mode--indent-rules
+(defvar spthy-ts--indent-rules
   (cl-macrolet ((rxl (&rest args)
-                  `(spthy-ts-mode--regexp-opt-line ,@args))
+                  `(spthy-ts--regexp-opt-line ,@args))
                 (prev-node-is (&rest args)
-                  `(spthy-ts-mode--prev-node-is ,@args))
+                  `(spthy-ts--prev-node-is ,@args))
                 ;; For debugging: Do not inline lambda.
                 ;; (prev-node-is (&rest args)
-                ;;   `(list 'spthy-ts-mode--prev-node-is ,@args))
+                ;;   `(list 'spthy-ts--prev-node-is ,@args))
                 )
     `((spthy
        ;; Don't interfere with proof formatting.
-       (spthy-ts-mode--within-proof-p
+       (spthy-ts--within-proof-p
         no-indent)
 
        ;;; Comments.
@@ -896,12 +896,12 @@ applies the appropriate text property to alter their syntax class."
         column-0 spthy-ts-indent-offset)
        ;; Incomplete rules.
        (,(prev-node-is (rxl "[" "--[") :prev-line t)
-        spthy-ts-mode--end-of-prev-node 2)
+        spthy-ts--end-of-prev-node 2)
 
 
        ;;; Lemmas and formulas.
-       spthy-ts-mode--logical-operator-indent-rule
-       spthy-ts-mode--formula-writing-indent-rule
+       spthy-ts--logical-operator-indent-rule
+       spthy-ts--formula-writing-indent-rule
        ((and (parent-is "^quantified_formula$")
              (field-is "^variable$"))
         (nth-sibling 1) 0)
@@ -923,19 +923,19 @@ applies the appropriate text property to alter their syntax class."
        ((and no-node
              ,(prev-node-is
                "^,$"
-               :p (rxl spthy-ts-mode--signature-spec-nodes)
+               :p (rxl spthy-ts--signature-spec-nodes)
                :prev-line t))
         column-0 spthy-ts-indent-offset)
-       ((or (n-p-gp "^,$" ,(rxl spthy-ts-mode--signature-spec-nodes) nil)
+       ((or (n-p-gp "^,$" ,(rxl spthy-ts--signature-spec-nodes) nil)
             ;; To support "comma on new line" style.
             (and no-node
                  ,(prev-node-is
                    nil
-                   :p (rxl spthy-ts-mode--signature-spec-nodes)
+                   :p (rxl spthy-ts--signature-spec-nodes)
                    :bolp t)))
         column-0 ,(lambda (&rest _)
                     (- spthy-ts-indent-offset 2)))
-       ((parent-is ,(rxl spthy-ts-mode--signature-spec-nodes))
+       ((parent-is ,(rxl spthy-ts--signature-spec-nodes))
         parent spthy-ts-indent-offset)
        ;; Equations.
        ((or
@@ -957,9 +957,9 @@ applies the appropriate text property to alter their syntax class."
 
        ;; Handle missing brackets where the parser
        ;; itself does not recover with a MISSING node.
-       spthy-ts-mode--missing-closing-bracket-indent-rule
+       spthy-ts--missing-closing-bracket-indent-rule
        ;; Handle cases where the parser does recover.
-       spthy-ts-mode--parser-missing-node-indent-rule
+       spthy-ts--parser-missing-node-indent-rule
 
 
        ;;; Top-level.
@@ -979,7 +979,7 @@ applies the appropriate text property to alter their syntax class."
 
 
        ((node-is ,(rxl ")" "}"))
-        spthy-ts-mode--matching-bracket-start 0)
+        spthy-ts--matching-bracket-start 0)
 
 
        ;; TODO Does process writing need improvements?
@@ -1001,28 +1001,28 @@ applies the appropriate text property to alter their syntax class."
 
        ;; For "else if", "else lookup", anchor to else.
        ((and (parent-is ,(rxl "conditional" "read_state"))
-             (node-is ,(rxl spthy-ts-mode--process-nodes))
+             (node-is ,(rxl spthy-ts--process-nodes))
              ,(lambda (_node parent &rest _)
                 (equal (treesit-node-field-name parent) "else")))
-        spthy-ts-mode--else-anchor spthy-ts-indent-offset)
+        spthy-ts--else-anchor spthy-ts-indent-offset)
        ;; Nested else.
        ((and (parent-is ,(rxl "conditional" "read_state"))
              (node-is "else")
              ,(lambda (_node parent &rest _)
                 (equal (treesit-node-field-name parent) "else")))
-        spthy-ts-mode--else-anchor 0)
+        spthy-ts--else-anchor 0)
        ((and (parent-is ,(rxl "conditional" "read_state"))
-             (node-is ,(rxl spthy-ts-mode--process-nodes)))
+             (node-is ,(rxl spthy-ts--process-nodes)))
         parent spthy-ts-indent-offset)
 
        ((n-p-gp ,(rxl "mset_term" "term_eq" "fresh_var"
                       "linear_fact" "persistent_fact"
                       "equality")
-                ,(rxl spthy-ts-mode--process-nodes)
+                ,(rxl spthy-ts--process-nodes)
                 nil)
         parent spthy-ts-indent-offset)
-       ((node-is ,(rxl spthy-ts-mode--process-nodes))
-        spthy-ts-mode--nested-or-standalone-parent 0)
+       ((node-is ,(rxl spthy-ts--process-nodes))
+        spthy-ts--nested-or-standalone-parent 0)
 
 
        ;;; Rules.
@@ -1047,13 +1047,13 @@ applies the appropriate text property to alter their syntax class."
            (max
             0
             (+ spthy-ts-indent-offset
-               spthy-ts-mode-arrow-indent-offset))))
+               spthy-ts-arrow-indent-offset))))
        ((or (node-is "^premise$")
             (node-is "^conclusion$")
             ,(prev-node-is "^\\]->$" :p "^action_fact$")
             ,(prev-node-is "^-->$"))
         column-0 spthy-ts-indent-offset)
-       spthy-ts-mode--incomplete-let-indent-rule
+       spthy-ts--incomplete-let-indent-rule
        ((parent-is "^rule_let_block$")
         (nth-sibling 0 t) 0)
        ;; Handle first fact within rule premises and conclusions.
@@ -1073,7 +1073,7 @@ applies the appropriate text property to alter their syntax class."
              ,(prev-node-is "^,$"))
         (nth-sibling 0 t) 0)
        ((node-is "^]$")
-        spthy-ts-mode--matching-bracket-start 0)
+        spthy-ts--matching-bracket-start 0)
        ((node-is
          ,(rxl "rule_attr" "function_attribute" "lemma_attr"
                "diff_lemma_attr" "restriction_attr" "language"))
@@ -1103,7 +1103,7 @@ applies the appropriate text property to alter their syntax class."
         parent 0)
        ((and no-node (parent-is "^action_fact$"))
         parent 2)
-       spthy-ts-mode--no-node-fallback-rule
+       spthy-ts--no-node-fallback-rule
        ((node-is ,(rxl "multi_comment" "single_comment"))
         parent 0)
        (no-node prev-line 0)
@@ -1111,19 +1111,19 @@ applies the appropriate text property to alter their syntax class."
 
 ;;; Things
 
-(defun spthy-ts-mode--node-defun-p (node)
+(defun spthy-ts--node-defun-p (node)
   (and (equal (treesit-node-type (treesit-node-parent node)) "theory")
        (not (member (treesit-node-type node)
                     '( nil "single_comment" "multi_comment"
                        "theory" "begin" "end" "ident")))))
 
-(defvar spthy-ts-mode--treesit-things
+(defvar spthy-ts--treesit-things
   '((spthy
-     (defun spthy-ts-mode--node-defun-p))))
+     (defun spthy-ts--node-defun-p))))
 
 ;;; Imenu
 
-(defun spthy-ts-mode--defun-name (node)
+(defun spthy-ts--defun-name (node)
   (pcase (treesit-node-type node)
     ((or "lemma" "diff_lemma" "restriction" "case_test" "accountability_lemma")
      (concat
@@ -1146,24 +1146,24 @@ applies the appropriate text property to alter their syntax class."
      (treesit-node-text (treesit-node-child-by-field-name
                          node "let_identifier")))))
 
-(defun spthy-ts-mode--parent-is-theory-p (node)
+(defun spthy-ts--parent-is-theory-p (node)
   (treesit-node-match-p (treesit-node-parent node) "^theory$"))
 
-(defvar spthy-ts-mode--imenu-settings
-  `(( "Process" ,(spthy-ts-mode--rxl "process" "let")
-      spthy-ts-mode--parent-is-theory-p nil)
+(defvar spthy-ts--imenu-settings
+  `(( "Process" ,(spthy-ts--rxl "process" "let")
+      spthy-ts--parent-is-theory-p nil)
     ( "Rule" "^rule$"
-      spthy-ts-mode--parent-is-theory-p nil)
+      spthy-ts--parent-is-theory-p nil)
     ( "Restriction" "^restriction$"
-      spthy-ts-mode--parent-is-theory-p nil)
+      spthy-ts--parent-is-theory-p nil)
     ( "Lemma" "^lemma$"
-      spthy-ts-mode--parent-is-theory-p nil)
+      spthy-ts--parent-is-theory-p nil)
     ( "Case Test" "^case_test$"
-      spthy-ts-mode--parent-is-theory-p nil)
+      spthy-ts--parent-is-theory-p nil)
     ( "Accountability Lemma" "^accountability_lemma$"
-      spthy-ts-mode--parent-is-theory-p nil)
+      spthy-ts--parent-is-theory-p nil)
     ( "diffLemma" "^diff_lemma$"
-      spthy-ts-mode--parent-is-theory-p nil)))
+      spthy-ts--parent-is-theory-p nil)))
 
 (with-eval-after-load 'consult-imenu
   (add-to-list 'consult-imenu-config
@@ -1182,20 +1182,20 @@ applies the appropriate text property to alter their syntax class."
 ;;;###autoload
 (define-derived-mode spthy-ts-mode prog-mode "spthy-ts"
   "Major mode for editing the spthy language of the Tamarin prover."
-  :syntax-table spthy-ts-mode--syntax-table
+  :syntax-table spthy-ts--syntax-table
 
   (when (treesit-ready-p 'spthy)
     (treesit-parser-create 'spthy)
 
-    (setq-local treesit-font-lock-settings spthy-ts-mode--font-lock-settings)
-    (setq-local syntax-propertize-function #'spthy-ts-mode--syntax-propertize)
+    (setq-local treesit-font-lock-settings spthy-ts--font-lock-settings)
+    (setq-local syntax-propertize-function #'spthy-ts--syntax-propertize)
 
-    (setq-local treesit-simple-indent-rules spthy-ts-mode--indent-rules)
+    (setq-local treesit-simple-indent-rules spthy-ts--indent-rules)
 
-    (setq-local treesit-defun-name-function #'spthy-ts-mode--defun-name)
+    (setq-local treesit-defun-name-function #'spthy-ts--defun-name)
     (setq-local treesit-defun-tactic 'top-level)
-    (setq-local treesit-simple-imenu-settings spthy-ts-mode--imenu-settings)
-    (setq-local treesit-thing-settings spthy-ts-mode--treesit-things)
+    (setq-local treesit-simple-imenu-settings spthy-ts--imenu-settings)
+    (setq-local treesit-thing-settings spthy-ts--treesit-things)
 
     (c-ts-common-comment-setup)
 
