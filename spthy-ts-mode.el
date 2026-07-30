@@ -79,19 +79,17 @@ rule Rule:
 (defcustom spthy-ts-formula-indent-style 'parent
   "Indentation style for formulas in `spthy-ts-mode'.
 
-When `parent', the default, a logical operator or the operand that
-follows it are indented to align with the column where their enclosing
-subformula begins. For example:
+When `parent', the default, a binary operator or its second operand is
+indented to align with the first operand. For example:
 
 All a b c. A(a)
            ==> B(b) &
                C(c)
 
-The `compact' style behaves like `parent', except when the enclosing
-subformula starts on the same line as its quantifier. In that case, the
-indentation is usually computed as if the subformula started on the line
-after the quantifier.
-For example, instead of:
+The `compact' style behaves like `parent', except when the first operand
+starts on the same line as its enclosing quantifier. In that case, the
+indentation is usually computed as if the first operand started on the
+line after the quantifier. For example, instead of:
 
 All a b c. A(a)
            ==> B(b, c)
