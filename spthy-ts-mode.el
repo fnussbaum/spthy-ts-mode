@@ -78,13 +78,14 @@ rule Rule:
 
 (defcustom spthy-ts-formula-indent-style 'parent
   "Indentation style for formulas in `spthy-ts-mode'.
-
 When `parent', the default, a binary operator or its second operand is
 indented to align with the first operand. For example:
 
 All a b c. A(a)
            ==> B(b) &
                C(c)
+
+See also the option `spthy-ts-formula-align-operands'.
 
 The `compact' style behaves like `parent', except when the first operand
 starts on the same line as its enclosing quantifier. In that case, the
@@ -110,8 +111,26 @@ left to the user and is not touched by commands like `indent-region'."
   :type '(choice (const parent) (const compact) (const manual)))
 
 (defcustom spthy-ts-formula-align-operands nil
-  "Whether to align operands in formulas in `spthy-ts-mode'."
-  :type 'boolean)
+  "Whether to align operands in formulas in `spthy-ts-mode'.
+When nil, the default, binary operators are indented to align with
+their first operand, see also `spthy-ts-formula-indent-style'.
+For example:
+
+  A()
+  ==> B()
+      & C()
+      & D()
+
+When non-nil, the indentation offset of binary operators is decreased
+by 2. This aligns both operands of conjunctions and disjunctions, as
+long as a single space follows the operator:
+
+  A()
+==> B()
+  & C()
+  & D()"
+  :type 'boolean
+  :safe 'booleanp)
 
 (defface spthy-ts-process-keyword-face
   '((t (:inherit font-lock-keyword-face)))
