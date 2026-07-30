@@ -111,6 +111,10 @@ When `manual', indentation of logical operators and their operands is
 left to the user and is not touched by commands like `indent-region'."
   :type '(choice (const parent) (const compact) (const manual)))
 
+(defcustom spthy-ts-mode-formula-align-operands nil
+  "Whether to align operands in formulas in `spthy-ts-mode'."
+  :type 'boolean)
+
 (defface spthy-ts-process-keyword-face
   '((t (:inherit font-lock-keyword-face)))
   "Face used for SAPIC+ keywords in spthy files.")
@@ -514,52 +518,63 @@ applies the appropriate text property to alter their syntax class."
 ;;; Indentation
 
 (defun spthy-ts-mode--logical-operator-indent-rule (node parent &rest _)
-  (when (or
-         ;; We cannot use `treesit-node-match-p' here because it assumes
-         ;; single-byte characters (see fast_c_string_match_internal). For
-         ;; example, "∨" would match "(".
-         (string-match-p
-          (spthy-ts-mode--rxl
-           "&" "∧" "|" "∨" "==>" "⇒" "<=>" "⇔" "not" "¬")
-          (or (treesit-node-type node) ""))
-         (treesit-node-match-p
-          parent
-          (spthy-ts-mode--rxl
-           "conjunction" "disjunction" "imp" "iff" "negation")))
-    (pcase spthy-ts-mode-formula-indent-style
-      ('manual
-        '(no-indent))
-      ('parent
-        `(,(treesit-node-start parent) . 0))
-      ('compact
-        (cl-flet* ((above-parent-line-p (nod)
-                     (< (treesit-node-start nod)
-                        (save-excursion
-                          (goto-char (treesit-node-start parent))
-                          (pos-bol))))
-                   (parent-quantifier-prev-line (nod)
-                     (let ((nod-parent (treesit-node-parent nod)))
-                       (or (equal (treesit-node-type nod-parent)
-                                  "quantified_formula")
-                           (above-parent-line-p nod-parent)))))
-          (let* ((maybe-quantifier-child
-                  (treesit-parent-until parent #'parent-quantifier-prev-line
-                                        'include-node))
-                 (maybe-quantifier
-                  (treesit-node-parent maybe-quantifier-child))
-                 (offset (- (treesit-node-start parent)
-                            (treesit-node-start
-                             maybe-quantifier-child))))
-            (if (or
-                 (above-parent-line-p maybe-quantifier)
-                 ;; Do not shift to the left when the offset is large,
-                 ;; as this could be confusing.
-                 (>= offset 2))
-                `(,(treesit-node-start parent) . 0)
-              ;; Else shift.
-              `(,(treesit-node-start maybe-quantifier) .
-                ,(+ spthy-ts-indent-offset
-                    offset)))))))))
+  (let* ((is-binary-op
+          ;; We cannot use `treesit-node-match-p' here because it assumes
+          ;; single-byte characters (see fast_c_string_match_internal). For
+          ;; example, "∨" would match "(".
+          (string-match-p
+           (spthy-ts-mode--rxl
+            "&" "∧" "|" "∨" "==>" "⇒" "<=>" "⇔" )
+           (or (treesit-node-type node) "")))
+         (offset (if (and is-binary-op
+                          spthy-ts-mode-formula-align-operands)
+                     -2
+                   0)))
+    (when (or is-binary-op
+              (string-match-p
+               (spthy-ts-mode--rxl "not" "¬")
+               (or (treesit-node-type node) ""))
+              (and (not (null node))
+                   (treesit-node-match-p
+                    parent
+                    (spthy-ts-mode--rxl
+                     "conjunction" "disjunction" "imp" "iff" "negation"))))
+      (pcase spthy-ts-mode-formula-indent-style
+        ('manual
+         '(no-indent))
+        ('parent
+         `(,(treesit-node-start parent) . ,offset))
+        ('compact
+         (cl-flet* ((above-parent-line-p (nod)
+                      (< (treesit-node-start nod)
+                         (save-excursion
+                           (goto-char (treesit-node-start parent))
+                           (pos-bol))))
+                    (parent-quantifier-prev-line (nod)
+                      (let ((nod-parent (treesit-node-parent nod)))
+                        (or (equal (treesit-node-type nod-parent)
+                                   "quantified_formula")
+                            (above-parent-line-p nod-parent)))))
+           (let* ((maybe-quantifier-child
+                   (treesit-parent-until parent #'parent-quantifier-prev-line
+                                         'include-node))
+                  (maybe-quantifier
+                   (treesit-node-parent maybe-quantifier-child))
+                  (offset-to-quant-child
+                   (- (treesit-node-start parent)
+                      (treesit-node-start
+                       maybe-quantifier-child))))
+             (if (or
+                  (above-parent-line-p maybe-quantifier)
+                  ;; Do not shift to the left when the offset is large,
+                  ;; as this could be confusing.
+                  (>= offset-to-quant-child 2))
+                 `(,(treesit-node-start parent) . 0)
+               ;; Else shift.
+               `(,(treesit-node-start maybe-quantifier) .
+                 ,(+ spthy-ts-indent-offset
+                     offset-to-quant-child
+                     offset))))))))))
 
 (defun spthy-ts-mode--formula-writing-indent-rule (node parent bol &rest _)
   (when (or (and (null node)
@@ -623,11 +638,13 @@ applies the appropriate text property to alter their syntax class."
   (let ((prefix (buffer-substring-no-properties (point-min) bol))
         ;; The buffer-local values could differ from the default.
         (formula-indent-style spthy-ts-mode-formula-indent-style)
+        (formula-align-operands spthy-ts-mode-formula-align-operands)
         (indent-offset spthy-ts-indent-offset)
         (arrow-indent-offset spthy-ts-mode-arrow-indent-offset))
     (with-work-buffer
       (delay-mode-hooks (spthy-ts-mode))
       (setq-local spthy-ts-mode-formula-indent-style formula-indent-style)
+      (setq-local spthy-ts-mode-formula-align-operands formula-align-operands)
       (setq-local spthy-ts-indent-offset indent-offset)
       (setq-local spthy-ts-mode-arrow-indent-offset arrow-indent-offset)
       (insert prefix)
