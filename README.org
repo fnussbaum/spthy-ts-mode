@@ -70,7 +70,6 @@ If you are using [[https://github.com/Fuco1/smartparens][smartparens]], add the
 following to your configuration to enable spthy support:
 #+begin_src elisp
 (with-eval-after-load 'spthy-ts-mode
-  ;; Wrapped in with-eval-after-load or in the use-package :config block.
   (require 'smartparens-spthy))
 ;; If necessary:
 ;; (add-hook 'spthy-ts-mode-hook 'smartparens-mode)
