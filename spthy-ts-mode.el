@@ -132,27 +132,27 @@ long as a single space follows the operator:
   :type 'boolean
   :safe 'booleanp)
 
-(defface spthy-ts-process-keyword-face
+(defface spthy-ts-process-keyword
   '((t (:inherit font-lock-keyword-face)))
   "Face used for SAPIC+ keywords in spthy files.")
 
-(defface spthy-ts-action-fact-face
+(defface spthy-ts-action-fact
   '((t (:inherit font-lock-property-name-face)))
   "Face used for action facts in spthy files.")
 
-(defface spthy-ts-action-constraint-face
+(defface spthy-ts-action-constraint
   '((t (:inherit font-lock-property-use-face)))
   "Face used for action facts within formulas in spthy files.")
 
-(defface spthy-ts-built-in-fact-face
+(defface spthy-ts-built-in-fact
   '((t (:inherit font-lock-builtin-face)))
   "Face used for built-in facts in spthy files.")
 
-(defface spthy-ts-built-in-function-face
+(defface spthy-ts-built-in-function
   '((t (:inherit font-lock-builtin-face)))
   "Face used for built-in function calls in spthy files.")
 
-(defface spthy-ts-function-call-face
+(defface spthy-ts-function-call
   '((t (:inherit font-lock-function-call-face)))
   "Face used for function calls in spthy files.")
 
@@ -306,7 +306,7 @@ applies the appropriate text property to alter their syntax class."
          (<= start node-start node-end end)
          (member (treesit-node-text node) spthy-ts--builtin-facts))
       (add-face-text-property
-       node-start node-end 'spthy-ts-built-in-fact-face))))
+       node-start node-end 'spthy-ts-built-in-fact))))
 
 (defmacro spthy-ts--throttled-query-function (query collect)
   (let ((last-time (gensym "last-time"))
@@ -348,7 +348,7 @@ applies the appropriate text property to alter their syntax class."
                     (and (member (treesit-node-text node) idents)
                          (member (symbol-name theory) imported-theories)))))
       (add-face-text-property
-       node-start node-end 'spthy-ts-built-in-function-face))))
+       node-start node-end 'spthy-ts-built-in-function))))
 
 (defalias 'spthy-ts--global-definitions
   (spthy-ts--throttled-query-function
@@ -434,7 +434,7 @@ applies the appropriate text property to alter their syntax class."
       (,@(spthy-ts--tokens-add-face
           'general '@font-lock-keyword-face)
        ,@(spthy-ts--tokens-add-face
-          'processes '@spthy-ts-process-keyword-face)
+          'processes '@spthy-ts-process-keyword)
        ,@(spthy-ts--tokens-add-face
           'preprocessor '@font-lock-preprocessor-face)
        ((atom) @font-lock-keyword-face)
@@ -459,20 +459,20 @@ applies the appropriate text property to alter their syntax class."
       :language spthy
       :feature function
       ((nary_app function_identifier: (ident)
-                 @spthy-ts-function-call-face)
+                 @spthy-ts-function-call)
        (binary_app function_identifier: (ident)
-                   @spthy-ts-function-call-face))
+                   @spthy-ts-function-call))
 
       :language spthy
       :feature action-fact
       ((action_fact ( linear_fact fact_identifier: (ident)
-                      @spthy-ts-action-fact-face))
+                      @spthy-ts-action-fact))
        (action_fact ( persistent_fact fact_identifier: (ident)
-                      @spthy-ts-action-fact-face))
+                      @spthy-ts-action-fact))
        (event ( linear_fact fact_identifier: (ident)
-                @spthy-ts-action-fact-face))
+                @spthy-ts-action-fact))
        (action_constraint ( linear_fact fact_identifier: (ident)
-                            @spthy-ts-action-constraint-face)))
+                            @spthy-ts-action-constraint)))
 
       ;; With this feature, references to predicates and predefined processes are
       ;; only highlighted when they are defined in the same file. In principle,
