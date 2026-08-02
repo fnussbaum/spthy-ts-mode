@@ -543,7 +543,7 @@ applies the appropriate text property to alter their syntax class."
            (spthy-ts--rxl
             "&" "∧" "|" "∨" "==>" "⇒" "<=>" "⇔" )
            (or (treesit-node-type node) "")))
-         (offset (if (and is-binary-op
+         (align-offset (if (and is-binary-op
                           spthy-ts-formula-align-operands)
                      -2
                    0)))
@@ -560,7 +560,7 @@ applies the appropriate text property to alter their syntax class."
         ('manual
          '(no-indent))
         ('parent
-         `(,(treesit-node-start parent) . ,offset))
+         `(,(treesit-node-start parent) . ,align-offset))
         ('compact
          (cl-flet* ((above-parent-line-p (nod)
                       (< (treesit-node-start nod)
@@ -586,12 +586,12 @@ applies the appropriate text property to alter their syntax class."
                   ;; Do not shift to the left when the offset is large,
                   ;; as this could be confusing.
                   (>= offset-to-quant-child 2))
-                 `(,(treesit-node-start parent) . 0)
+                 `(,(treesit-node-start parent) . ,align-offset)
                ;; Else shift.
                `(,(treesit-node-start maybe-quantifier) .
                  ,(+ spthy-ts-indent-offset
                      offset-to-quant-child
-                     offset))))))))))
+                     align-offset))))))))))
 
 (defun spthy-ts--formula-writing-indent-rule (node parent bol &rest _)
   (when (or (and (null node)
