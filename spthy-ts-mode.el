@@ -116,19 +116,25 @@ When nil, the default, binary operators are indented to align with
 their first operand, see also `spthy-ts-formula-indent-style'.
 For example:
 
-  A()
-  ==> B()
-      & C()
-      & D()
+   A()
+   ==> B()
+       | C()
+       | D()
+         & E()
 
 When non-nil, the indentation offset of binary operators is decreased
 by 2. This aligns both operands of conjunctions and disjunctions, as
 long as a single space follows the operator:
 
-  A()
-==> B()
-  & C()
-  & D()"
+   A()
+ ==> B()
+   | C()
+   | D()
+   & E()
+
+Note that the example demonstrates a case where the precedence of and
+and or is not reflected in the indentation due to this option being
+enabled."
   :type 'boolean
   :safe 'booleanp)
 
