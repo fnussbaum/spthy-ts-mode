@@ -3,7 +3,7 @@
 ;; Copyright (C) 2026 Ferdinand Nussbaum
 
 ;; Author: Ferdinand Nussbaum <ferdinand.nussbaum@inf.ethz.ch>
-;; Version: 0.3.0
+;; Version: 0.3.1
 ;; Package-Requires: ((emacs "31.0.90"))
 ;; Keywords: tamarin spthy languages tree-sitter
 ;; URL: https://www.github.com/fnussbaum/spthy-ts-mode
