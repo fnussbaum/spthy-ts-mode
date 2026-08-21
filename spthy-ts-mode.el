@@ -633,7 +633,9 @@ applies the appropriate text property to alter their syntax class."
             (if (eq spthy-ts-formula-indent-style 'manual)
                 'parent
               spthy-ts-formula-indent-style)))
-       (spthy-ts--indent-try-insertions '("| A()" "A()" "a. A()") bol))
+       (spthy-ts--indent-try-insertions
+        '("| A()" "A()" "| A()\"" "A()\"" "a. A()" "a. A()\"")
+        bol))
      `(,(funcall (alist-get 'prev-line treesit-simple-indent-presets)
                  node parent bol)
        . 0))))
@@ -648,7 +650,9 @@ applies the appropriate text property to alter their syntax class."
            (if (eq spthy-ts-formula-indent-style 'manual)
                'parent
              spthy-ts-formula-indent-style)))
-      (spthy-ts--indent-try-insertions '("| A()" "A()" "a. A()") bol))))
+      (spthy-ts--indent-try-insertions
+       '("| A()" "A()" "| A()\"" "A()\"" "a. A()" "a. A()\"")
+       bol))))
 
 (defun spthy-ts--incomplete-let-indent-rule (_node _parent bol &rest _)
   (when-let* ((node (spthy-ts--prev-non-comment-node bol))
