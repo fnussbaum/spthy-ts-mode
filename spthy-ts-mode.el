@@ -953,6 +953,19 @@ applies the appropriate text property to alter their syntax class."
                :p (rxl spthy-ts--signature-spec-nodes)
                :prev-line t))
         column-0 spthy-ts-indent-offset)
+       ((or
+         (n-p-gp ,(rxl "=" "<=>") ,(rxl "macro" "equation" "predicate") nil)
+         (and no-node
+              ,(prev-node-is
+                (rxl "=" "<=>") :p (rxl "macro" "equation" "predicate")
+                :prev-line t))
+         (and (parent-is "^macro$")
+              (field-is "^term$"))
+         (and (parent-is "^equation$")
+              (field-is "^right$"))
+         (and (parent-is "^predicate$")
+              (field-is "^formula$")))
+        parent spthy-ts-indent-offset)
        ((or (n-p-gp "^,$" ,(rxl spthy-ts--signature-spec-nodes) nil)
             ;; To support "comma on new line" style.
             (and no-node
@@ -963,22 +976,6 @@ applies the appropriate text property to alter their syntax class."
         column-0 ,(lambda (&rest _)
                     (- spthy-ts-indent-offset 2)))
        ((parent-is ,(rxl spthy-ts--signature-spec-nodes))
-        parent spthy-ts-indent-offset)
-       ;; Equations.
-       ((or
-         (n-p-gp "^=$" "^equation$" nil)
-         (and no-node
-              ,(prev-node-is "^=$" :p "^equation$" :prev-line t))
-         (and (parent-is "^equation$")
-              (field-is "^right$")))
-        parent spthy-ts-indent-offset)
-       ;; Predicates.
-       ((or
-         (n-p-gp "^<=>$" "^predicate$" nil)
-         (and no-node
-              ,(prev-node-is "^<=>$" :p "^predicate$" :prev-line t))
-         (and (parent-is "^predicate$")
-              (field-is "^formula$")))
         parent spthy-ts-indent-offset)
 
 
