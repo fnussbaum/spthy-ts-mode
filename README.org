@@ -6,8 +6,7 @@ The mode provides syntax highlighting, automatic indentation,
 imenu integration, and more, including support for SAPIC+.
 
 ** Installation
-Note that this package requires a pretest build of Emacs (version 31.0.90 or
-later) compiled with tree-sitter support.
+Note that this package requires Emacs 31.1 or later compiled with tree-sitter support.
 
 *** 1. Package installation
 For example, with =use-package= and =package-vc=:
