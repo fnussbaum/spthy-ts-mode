@@ -185,11 +185,10 @@ just toggles it when zero or omitted."
 (defvar spthy-ts--syntax-table
   (let ((table (make-syntax-table)))
     (modify-syntax-entry ?_   "_"      table)
+    ;; TODO Should type indicators be part of symbols or punctuation?
     (modify-syntax-entry ?%   "_"      table)
     (modify-syntax-entry ?$   "_"      table)
     (modify-syntax-entry ?~   "_"      table)
-    ;; The exclamation mark for persistent facts
-    ;; can be considered part of their name.
     (modify-syntax-entry ?!   "_"      table)
     (modify-syntax-entry ?+   "."      table)
     (modify-syntax-entry ?-   "."      table)
