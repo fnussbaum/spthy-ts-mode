@@ -45,7 +45,8 @@
            :commit "599809bc1aa66e6d363df0c38eaa3e60a5547620")
    t)
   (when (treesit-ready-p 'spthy)
-    (add-to-list 'auto-mode-alist '("\\.spthy\\'" . spthy-ts-mode))))
+    (add-to-list 'auto-mode-alist '("\\.spthy\\'" . spthy-ts-mode))
+    (add-to-list 'auto-mode-alist '("\\.sapic\\'" . spthy-ts-mode))))
 
 (defgroup spthy-ts nil
   "Major mode for editing Tamarin spthy files."
