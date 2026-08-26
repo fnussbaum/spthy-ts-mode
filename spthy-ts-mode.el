@@ -598,6 +598,14 @@ applies the appropriate text property to alter their syntax class."
                      offset-to-quant-child
                      align-offset))))))))))
 
+(defconst spthy-ts--indent-formula-insertions
+  (let ((as '("| A()" "A()" "a. A()")))
+    (dolist (suffix '(")" ")" "\"") as)
+      (setq as (cl-nunion as (mapcar
+                              (lambda (str)
+                                (concat str suffix))
+                              as))))))
+
 (defun spthy-ts--formula-writing-indent-rule (node parent bol &rest _)
   (when (or (and (null node)
                  (and-let* ((prev-node (spthy-ts--prev-non-comment-node bol t))
@@ -633,8 +641,7 @@ applies the appropriate text property to alter their syntax class."
                 'parent
               spthy-ts-formula-indent-style)))
        (spthy-ts--indent-try-insertions
-        '("| A()" "A()" "| A()\"" "A()\"" "a. A()" "a. A()\"")
-        bol))
+        spthy-ts--indent-formula-insertions bol))
      `(,(funcall (alist-get 'prev-line treesit-simple-indent-presets)
                  node parent bol)
        . 0))))
@@ -650,8 +657,7 @@ applies the appropriate text property to alter their syntax class."
                'parent
              spthy-ts-formula-indent-style)))
       (spthy-ts--indent-try-insertions
-       '("| A()" "A()" "| A()\"" "A()\"" "a. A()" "a. A()\"")
-       bol))))
+       spthy-ts--indent-formula-insertions bol))))
 
 (defun spthy-ts--incomplete-let-indent-rule (_node _parent bol &rest _)
   (when-let* ((node (spthy-ts--prev-non-comment-node bol))
@@ -719,12 +725,12 @@ applies the appropriate text property to alter their syntax class."
     (node _parent bol &rest _)
   (when (and (null node)
              (treesit-parent-until
-              (spthy-ts--prev-non-comment-node bol)
+              (spthy-ts--prev-non-comment-node bol t)
               (lambda (nod)
                 (and (treesit-node-match-p (treesit-node-parent nod) "^ERROR$")
                      (not (treesit-node-match-p nod "^theory$"))))
               t))
-    (spthy-ts--indent-try-insertions '("]" "]->" ")" ">") bol)))
+    (spthy-ts--indent-try-insertions '("]->" "]" ")" ">") bol)))
 
 (defconst spthy-ts--missing-query
   (treesit-query-compile 'spthy '((MISSING) @missing)))
