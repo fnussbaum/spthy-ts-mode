@@ -32,18 +32,18 @@
 
 (defun sp-spthy-premise-or-conclusion-p ()
   (or
-   (funcall (spthy-ts-mode--prev-node-is ":" :p "^simple_rule$")
+   (funcall (spthy-ts--prev-node-is ":" :p "^simple_rule$")
             nil nil (- (point) 1))
-   (and (funcall (spthy-ts-mode--prev-node-is ":" :p "^ERROR$")
+   (and (funcall (spthy-ts--prev-node-is ":" :p "^ERROR$")
                  nil nil (- (point) 1))
         (treesit-node-match-p
          (treesit-node-at
           (save-excursion
             (goto-char (treesit-node-start
-                        (spthy-ts-mode--prev-non-comment-node (- (point) 1))))
+                        (spthy-ts--prev-non-comment-node (- (point) 1))))
             (pos-bol)))
          "^rule$"))
-   (funcall (spthy-ts-mode--prev-node-is "]->" :p "^action_fact$")
+   (funcall (spthy-ts--prev-node-is "]->" :p "^action_fact$")
             nil nil (- (point) 1))))
 
 (defun sp-spthy-square-bracket-handler (_id _action _context)
@@ -54,7 +54,7 @@
     (indent-for-tab-command)))
 
 (defun sp-spthy-action-fact-p (_id _action _context)
-  (funcall (spthy-ts-mode--prev-node-is "]" :p "^premise$")
+  (funcall (spthy-ts--prev-node-is "]" :p "^premise$")
            nil nil (- (point) 3)))
 
 (defun sp-spthy-tuple-p (_id _action _context)
@@ -67,7 +67,7 @@
               node
               (lambda (nod)
                 (treesit-node-match-p
-                 nod (spthy-ts-mode--rxl
+                 nod (spthy-ts--rxl
                       "mset_term" "arguments"
                       "linear_fact" "persistent_fact"))))))))
 
