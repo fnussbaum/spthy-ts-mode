@@ -50,8 +50,7 @@
   (when (sp-spthy-premise-or-conclusion-p)
     (insert " ")
     (save-excursion
-      (insert " "))
-    (indent-for-tab-command)))
+      (insert " "))))
 
 (defun sp-spthy-action-fact-p (_id _action _context)
   (funcall (spthy-ts--prev-node-is "]" :p "^premise$")
