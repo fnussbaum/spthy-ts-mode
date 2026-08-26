@@ -40,9 +40,9 @@
 (with-eval-after-load 'treesit
   (add-to-list
    'treesit-language-source-alist
-   '(spthy "https://github.com/fnussbaum/tamarin-prover"
+   '(spthy "https://github.com/tamarin-prover/tamarin-prover"
            :source-dir "tree-sitter/tree-sitter-spthy/src"
-           :commit "599809bc1aa66e6d363df0c38eaa3e60a5547620")
+           :commit "573a43953195d83e62fdbe32fc98253031bca60f")
    t)
   (when (treesit-ready-p 'spthy)
     (add-to-list 'auto-mode-alist '("\\.spthy\\'" . spthy-ts-mode))
