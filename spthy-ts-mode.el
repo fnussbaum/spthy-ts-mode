@@ -660,6 +660,9 @@ applies the appropriate text property to alter their syntax class."
                  (treesit-node-start node))))
     `(,let-pos . ,spthy-ts-indent-offset)))
 
+(defconst spthy-ts--error-query
+  (treesit-query-compile 'spthy '((ERROR) @error)))
+
 (defun spthy-ts--indent-try-insertions (candidates bol)
   (let ((prefix (buffer-substring-no-properties (point-min) bol))
         ;; The buffer-local values could differ from the default.
@@ -680,25 +683,32 @@ applies the appropriate text property to alter their syntax class."
         (catch 'result
           (dolist (str candidates)
             (insert str)
-            (let* ((largest-nod (treesit--indent-largest-node-at temp-bol)))
-              (when
-                  (not
-                   ;; Check for errors in and right before the insertion.
-                   (let ((pos (treesit-node-start
-                               (spthy-ts--prev-non-comment-node
-                                (pos-bol 2))))
-                         (prev-pos
-                          (treesit-node-start
-                           (spthy-ts--prev-non-comment-node temp-bol))))
-                     (catch 'error
-                       (while (>= pos prev-pos)
-                         (when (treesit-node-check
-                                (treesit-node-parent
-                                 (treesit--indent-largest-node-at pos))
-                                'has-error)
-                           (throw 'error t))
-                         (decf pos)))))
-                (throw 'result
+            (when
+                (not
+                 ;; Check for errors in and right before the insertion.
+                 (let ((begin (treesit-node-start
+                               (spthy-ts--prev-non-comment-node temp-bol)))
+                       (end (treesit-node-end
+                             (spthy-ts--prev-non-comment-node
+                              (pos-bol 2)))))
+                   (cl-remove-if
+                    (lambda (nod)
+                      ;; When the error starts before the previous node,
+                      ;; we ignore it, unless one of its direct children
+                      ;; starts in the interval.
+                      (and
+                       (< (treesit-node-start nod) begin)
+                       (not
+                        (any
+                         (lambda (child)
+                           (<= begin (treesit-node-start child) end))
+                         (treesit-node-children nod)))))
+                    (treesit-query-capture
+                     'spthy spthy-ts--error-query
+                     begin end 'node-only))))
+              (throw 'result
+                     (let ((largest-nod
+                            (treesit--indent-largest-node-at temp-bol)))
                        (treesit-simple-indent
                         largest-nod
                         (treesit-node-parent largest-nod)
