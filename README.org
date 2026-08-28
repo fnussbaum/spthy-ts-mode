@@ -78,5 +78,32 @@ following to your configuration to enable spthy support:
 The [[https://github.com/tamarin-prover/vscode-tamarin/tree/master/server][LSP server from the VS Code extension]] works well with the built-in LSP
 client =eglot= in Emacs.
 
+Exemplary setup (requires npm, node.js and typescript):
+#+begin_src bash
+EXT_DIR=$HOME/src/vscode-tamarin
+BIN=$HOME/.local/bin/tamarin-ls
+git clone https://github.com/tamarin-prover/vscode-tamarin $EXT_DIR
+cd $EXT_DIR
+npm install
+cd server
+tsc --build
+printf '#!/bin/bash
+node %s/server/out/server.js --stdio' $EXT_DIR > $BIN
+chmod +x $BIN
+#+end_src
+Finally, add the following to your configuration:
+#+begin_src elisp
+(defun +tamarin-ls-init-options (&optional server)
+  (let ((dir "~/src/vscode-tamarin/server/grammar/tree-sitter-tamarin/"))
+    `((SpthyParserPath . ,(expand-file-name "tree-sitter-spthy.wasm" dir))
+      (SplibParserPath . ,(expand-file-name "tree-sitter-splib.wasm" dir)))))
+
+(with-eval-after-load 'eglot
+  (add-to-list 'eglot-server-programs
+               '((spthy-mode spthy-ts-mode) "tamarin-ls"
+                 :initializationOptions +tamarin-ls-init-options)))
+#+end_src
+After completing these steps, =M-x eglot= in an spthy buffer should enable the LSP functionality.
+
 ** Contributing
 Feel free to report any issues, make suggestions, or open pull requests.
