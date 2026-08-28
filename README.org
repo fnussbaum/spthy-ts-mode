@@ -33,7 +33,7 @@ version has changed. This can again be done via =M-x treesit-install-language-gr
 
 In case the automatic installation does not work on your system, manually
 install the grammar from
-https://github.com/fnussbaum/tamarin-prover/tree/599809bc1aa66e6d363df0c38eaa3e60a5547620.
+https://github.com/tamarin-prover/tamarin-prover/tree/573a43953195d83e62fdbe32fc98253031bca60f.
 Make sure it takes precedence over any other version of the grammar installed on
 your system by moving it into the =tree-sitter= subdirectory of
 =user-emacs-directory=, or a directory specified in =treesit-extra-load-path=,
